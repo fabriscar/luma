@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUMA - Gestión de Impresión 3D</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-container" class="view">
+        <div class="login-card">
+            <h2>LUMA Sistema</h2>
+            <p>Ingreso para Socios</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" required placeholder="Ej: admin">
+                </div>
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" required placeholder="********">
+                </div>
+                <button type="submit" class="btn-primary">Ingresar</button>
+                <p id="login-error" class="error-msg hidden">Credenciales incorrectas</p>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard-container" class="view hidden">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>LUMA Panel</h3>
+            </div>
+            <nav class="sidebar-menu">
+                <button class="nav-btn active" data-section="produccion">Producción</button>
+                <button class="nav-btn" data-section="ventas">Ventas y Pedidos</button>
+                <button class="nav-btn" data-section="productos">Productos (Catálogo)</button>
+                <button class="nav-btn" data-section="stock">Stock Filamentos</button>
+                <button class="nav-btn" data-section="historial">📦 Historial</button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn-secondary">Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+
+            <!-- ====== SECCIÓN: PRODUCCIÓN (KANBAN) ====== -->
+            <section id="section-produccion" class="content-section">
+                <h2>Control de Producción</h2>
+
+                <!-- Filtro Kanban -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-kan-cliente" placeholder="Buscar por cliente...">
+                    </div>
+                    <button id="btn-limpiar-kan" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <div class="kanban-board">
+                    <div class="kanban-column" id="col-pendiente">
+                        <h3>Pendiente / En Preparación</h3>
+                        <div class="kanban-cards" id="cards-pendiente"></div>
+                    </div>
+                    <div class="kanban-column" id="col-progreso">
+                        <h3>En Producción ⏳</h3>
+                        <div class="kanban-cards" id="cards-progreso"></div>
+                    </div>
+                    <div class="kanban-column" id="col-entrega">
+                        <h3>Pendiente Entrega 📦</h3>
+                        <div class="kanban-cards" id="cards-entrega"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ====== SECCIÓN: VENTAS Y PEDIDOS ====== -->
+            <section id="section-ventas" class="content-section hidden">
+                <h2 id="title-venta-form">Registrar Nueva Venta / Pedido</h2>
+                <form id="venta-form" class="inline-form">
+                    <div class="form-group">
+                        <label for="venta-cliente">Cliente</label>
+                        <input type="text" id="venta-cliente" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="venta-entrega">Fecha de Entrega</label>
+                        <input type="date" id="venta-entrega" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="venta-producto">Producto</label>
+                        <select id="venta-producto" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="venta-material">Color / Material</label>
+                        <select id="venta-material" required></select>
+                    </div>
+                    <div class="form-group" style="min-width: 60px; flex: 0.4;">
+                        <label for="venta-cantidad">Cant.</label>
+                        <input type="number" id="venta-cantidad" value="1" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="venta-estado-pago">Estado de Pago</label>
+                        <select id="venta-estado-pago" required>
+                            <option value="NO_PAGADO">No Pagado</option>
+                            <option value="SENADO">Señado</option>
+                            <option value="PAGADO">Pagado Total</option>
+                        </select>
+                    </div>
+                    <div class="form-group hidden" id="group-monto-sena">
+                        <label for="venta-monto-sena">Monto de Seña ($)</label>
+                        <input type="number" step="0.01" id="venta-monto-sena">
+                    </div>
+                    <button type="submit" id="btn-submit-venta" class="btn-primary btn-inline">Crear Pedido</button>
+                </form>
+
+                <h2>Historial y Estados Financieros</h2>
+
+                <!-- Filtros de Ventas/Pedidos -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-ven-cliente" placeholder="Buscar por cliente...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Estado de pago</label>
+                        <select id="filtro-ven-pago">
+                            <option value="">Todos</option>
+                            <option value="NO_PAGADO">No Pagado</option>
+                            <option value="SENADO">Señado</option>
+                            <option value="PAGADO">Pagado</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Estado de producción</label>
+                        <select id="filtro-ven-produccion">
+                            <option value="">Todos</option>
+                            <option value="PENDIENTE_HACER">Pendiente</option>
+                            <option value="EN_PRODUCCION">En Producción</option>
+                            <option value="PENDIENTE_ENTREGA">P. Entrega</option>
+                            <option value="ENTREGADO">Entregado</option>
+                        </select>
+                    </div>
+                    <span id="contador-ven" class="filtro-contador"></span>
+                    <button id="btn-limpiar-ven" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Entrega</th>
+                                <th>Total</th>
+                                <th>Pago</th>
+                                <th>Producción</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-ventas-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ====== SECCIÓN: PRODUCTOS (CATÁLOGO) ====== -->
+            <section id="section-productos" class="content-section hidden">
+                <h2 id="title-producto-form">Catálogo de Productos Predefinidos</h2>
+                <form id="producto-form" class="inline-form">
+                    <div class="form-group">
+                        <label for="prod-nombre">Nombre de la pieza</label>
+                        <input type="text" id="prod-nombre" required>
+                    </div>
+                    <div class="form-group" style="min-width: 120px; flex: 0.5;">
+                        <label for="prod-peso">Peso (g)</label>
+                        <input type="number" id="prod-peso" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-precio">Precio Base ($)</label>
+                        <input type="number" step="0.01" id="prod-precio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-foto">Foto Producto</label>
+                        <input type="file" id="prod-foto" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-stl">Archivos .STL</label>
+                        <input type="file" id="prod-stl" accept=".stl" multiple>
+                    </div>
+                    <button type="submit" id="btn-submit-producto" class="btn-primary btn-inline">Guardar Producto</button>
+                </form>
+
+                <!-- Filtros de Productos -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-prod-nombre" placeholder="Buscar por nombre...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Peso máx. (g)</label>
+                        <input type="number" id="filtro-prod-peso-max" placeholder="Sin límite" min="0">
+                    </div>
+                    <div class="filter-group">
+                        <label>Precio máx. ($)</label>
+                        <input type="number" id="filtro-prod-precio-max" placeholder="Sin límite" min="0" step="0.01">
+                    </div>
+                    <span id="contador-prod" class="filtro-contador"></span>
+                    <button id="btn-limpiar-prod" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Nombre de la Pieza</th>
+                                <th>Peso Estimado</th>
+                                <th>Precio Base</th>
+                                <th>Archivos STL</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-productos-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ====== SECCIÓN: HISTORIAL DE PEDIDOS ENTREGADOS ====== -->
+            <section id="section-historial" class="content-section hidden">
+                <h2>Historial de Pedidos Entregados</h2>
+
+                <!-- Resumen estadístico -->
+                <div class="historial-resumen">
+                    <div class="resumen-card">
+                        <span class="rc-valor" id="hist-total-pedidos">0</span>
+                        <span class="rc-label">Pedidos Entregados</span>
+                    </div>
+                    <div class="resumen-card">
+                        <span class="rc-valor" id="hist-total-facturado">$0</span>
+                        <span class="rc-label">Total Facturado</span>
+                    </div>
+                    <div class="resumen-card">
+                        <span class="rc-valor" id="hist-total-cobrado">$0</span>
+                        <span class="rc-label">Total Cobrado</span>
+                    </div>
+                </div>
+
+                <!-- Filtros -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-hist-cliente" placeholder="Buscar por cliente...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Estado de pago</label>
+                        <select id="filtro-hist-pago">
+                            <option value="">Todos</option>
+                            <option value="NO_PAGADO">No Pagado</option>
+                            <option value="SENADO">Señado</option>
+                            <option value="PAGADO">Pagado</option>
+                        </select>
+                    </div>
+                    <span id="contador-hist" class="filtro-contador"></span>
+                    <button id="btn-limpiar-hist" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <!-- Grid de tarjetas -->
+                <div class="historial-grid" id="historial-grid"></div>
+            </section>
+
+            <!-- ====== SECCIÓN: STOCK FILAMENTOS ====== -->
+            <section id="section-stock" class="content-section hidden">
+                <h2 id="title-filamento-form">Control de Stock de Filamentos</h2>
+                <form id="filamento-form" class="inline-form">
+                    <div class="form-group">
+                        <label for="fil-tipo">Tipo</label>
+                        <input type="text" id="fil-tipo" required placeholder="PLA, PETG">
+                    </div>
+                    <div class="form-group">
+                        <label for="fil-marca">Marca</label>
+                        <input type="text" id="fil-marca" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fil-color">Color</label>
+                        <input type="text" id="fil-color" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fil-cantidad">Gramos</label>
+                        <input type="number" id="fil-cantidad" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fil-precio">Precio Compra ($)</label>
+                        <input type="number" step="0.01" id="fil-precio" required>
+                    </div>
+                    <button type="submit" id="btn-submit-filamento" class="btn-primary btn-inline">Guardar Filamento</button>
+                </form>
+
+                <!-- Filtros de Filamentos -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-fil-buscar" placeholder="Buscar tipo, marca o color...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Tipo de material</label>
+                        <select id="filtro-fil-tipo">
+                            <option value="">Todos</option>
+                            <option value="PLA">PLA</option>
+                            <option value="PETG">PETG</option>
+                            <option value="ABS">ABS</option>
+                            <option value="TPU">TPU</option>
+                            <option value="ASA">ASA</option>
+                            <option value="Resina">Resina</option>
+                        </select>
+                    </div>
+                    <span id="contador-fil" class="filtro-contador"></span>
+                    <button id="btn-limpiar-fil" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Marca</th>
+                                <th>Color</th>
+                                <th>Cantidad Disponible</th>
+                                <th>Precio de Compra</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-filamentos-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ====== SECCIÓN: HISTORIAL DE ENTREGADOS ====== -->
+    <!-- (injected inside main-content by JS, defined here as template) -->
+
+    <!-- Modal de confirmación personalizado -->
+    <div id="confirm-modal" class="confirm-overlay hidden">
+        <div class="confirm-box">
+            <p id="confirm-message" class="confirm-msg"></p>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" class="btn-secondary">Cancelar</button>
+                <button id="confirm-ok" class="btn-danger" style="width:auto;padding:0.5rem 1.25rem;">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de toasts (notificaciones) -->
+    <div id="toast-container" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
