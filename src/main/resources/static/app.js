@@ -1,7 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- CONFIGURACIÓN BASE DEL BACKEND ---
+    // --- CONFIGURACIÃ“N BASE DEL BACKEND ---
     const API_BASE = "/api";  // URL relativa: funciona desde cualquier PC en la red
+
+    // --- MANEJO DE TOKEN JWT ---
+    let jwtToken = localStorage.getItem('luma_jwt') || null;
+
+    async function fetchAuth(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        if (jwtToken) {
+            options.headers['Authorization'] = `Bearer ${jwtToken}`;
+        }
+        const response = await fetch(url, options);
+        if (response.status === 401 || response.status === 403) {
+            cerrarSesion(true);
+            throw new Error('Sesión expirada o inválida');
+        }
+        return response;
+    }
 
     // --- ELEMENTOS DE CONTROL ---
     const loginForm = document.getElementById('login-form');
@@ -98,8 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast toast-${tipo}`;
-        const iconos = { success: '✔', error: '✖', warning: '⚠' };
-        toast.innerHTML = `<span class="toast-icon">${iconos[tipo] || '✔'}</span><span>${mensaje}</span>`;
+        const iconos = { success: 'âœ”', error: 'âœ–', warning: 'âš ' };
+        toast.innerHTML = `<span class="toast-icon">${iconos[tipo] || 'âœ”'}</span><span>${mensaje}</span>`;
         container.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('toast-visible'));
         setTimeout(() => {
@@ -109,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- MODAL DE CONFIRMACIÓN PERSONALIZADO ---
+    // --- MODAL DE CONFIRMACIÃ“N PERSONALIZADO ---
     // =======================================================
     const confirmModal   = document.getElementById('confirm-modal');
     const confirmMessage = document.getElementById('confirm-message');
@@ -147,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- MANEJO DE SEÑA DINÁMICA ---
+    // --- MANEJO DE SEÃ‘A DINÃ MICA ---
     // =======================================================
     if (selectEstadoPago) {
         selectEstadoPago.addEventListener('change', () => {
@@ -168,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function actualizarSelectoresVenta() {
         if (!selectProducto || !selectMaterial) return;
 
-        selectProducto.innerHTML = '<option value="">-- Seleccioná --</option>';
+        selectProducto.innerHTML = '<option value="">-- SeleccionÃ¡ --</option>';
         productosCargados.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
@@ -176,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectProducto.appendChild(opt);
         });
 
-        selectMaterial.innerHTML = '<option value="">-- Seleccioná --</option>';
+        selectMaterial.innerHTML = '<option value="">-- SeleccionÃ¡ --</option>';
         filamentosCargados.forEach(f => {
             const opt = document.createElement('option');
             opt.value = `${f.tipo} - ${f.color}`;
@@ -186,12 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- CONEXIÓN HTTP 1: PRODUCTOS ---
+    // --- CONEXIÃ“N HTTP 1: PRODUCTOS ---
     // =======================================================
     async function cargarProductos() {
         mostrarSpinner(tablaProductosBody, 6);
         try {
-            const res = await fetch(`${API_BASE}/productos`);
+            const res = await fetchAuth(`${API_BASE}/productos`);
             if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
             productosCargados = await res.json();
             renderizarTablaProductos();
@@ -213,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtrados.length === 0) {
             const msg = productosCargados.length === 0
                 ? 'No hay productos registrados.'
-                : 'Ningún producto coincide con los filtros aplicados.';
+                : 'NingÃºn producto coincide con los filtros aplicados.';
             tablaProductosBody.innerHTML = `<tr><td colspan="6" class="sin-resultados">${msg}</td></tr>`;
             return;
         }
@@ -225,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sinFotoDiv = `<div class="prod-thumb sin-foto" style="${p.rutaFoto ? 'display:none' : ''}">Sin foto</div>`;
 
             const stlBadges = p.stlFiles && p.stlFiles.length > 0
-                ? p.stlFiles.map(stl => `<a href="${API_BASE}/stl/descargar/${stl.id}" class="stl-tag" style="text-decoration:none;">📥 ${stl.nombreArchivo}</a>`).join('')
+                ? p.stlFiles.map(stl => `<a href="${API_BASE}/stl/descargar/${stl.id}" class="stl-tag" style="text-decoration:none;">ðŸ“¥ ${stl.nombreArchivo}</a>`).join('')
                 : '<small style="color:var(--text-muted)">Ninguno</small>';
 
             const row = document.createElement('tr');
@@ -236,23 +252,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>$${p.precioBase}</td>
                 <td>${stlBadges}</td>
                 <td class="td-actions">
-                    <button class="btn-danger btn-del-prod" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                    <button class="btn-danger btn-del-prod" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">ðŸ—‘ Borrar</button>
                 </td>
             `;
             tablaProductosBody.appendChild(row);
         });
     }
 
-    // Delegación de eventos para eliminar productos
+    // DelegaciÃ³n de eventos para eliminar productos
     if (tablaProductosBody) {
         tablaProductosBody.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-del-prod');
             if (!btn) return;
             const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este producto? Se eliminarán sus archivos físicos del servidor.');
+            const ok = await confirmar('Â¿Seguro que querÃ©s borrar este producto? Se eliminarÃ¡n sus archivos fÃ­sicos del servidor.');
             if (!ok) return;
             try {
-                const res = await fetch(`${API_BASE}/productos/${id}`, { method: 'DELETE' });
+                const res = await fetchAuth(`${API_BASE}/productos/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(`Error ${res.status}`);
                 mostrarToast('Producto eliminado correctamente.');
                 cargarProductos();
@@ -281,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < stlInput.length; i++) formData.append('stlFiles', stlInput[i]);
 
             try {
-                const res = await fetch(`${API_BASE}/productos`, { method: 'POST', body: formData });
+                const res = await fetchAuth(`${API_BASE}/productos`, { method: 'POST', body: formData });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || `Error ${res.status}`);
@@ -299,12 +315,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- CONEXIÓN HTTP 2: FILAMENTOS ---
+    // --- CONEXIÃ“N HTTP 2: FILAMENTOS ---
     // =======================================================
     async function cargarFilamentos() {
         mostrarSpinner(tablaFilamentosBody, 6);
         try {
-            const res = await fetch(`${API_BASE}/filamentos`);
+            const res = await fetchAuth(`${API_BASE}/filamentos`);
             if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
             filamentosCargados = await res.json();
             renderizarTablaFilamentos();
@@ -326,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtrados.length === 0) {
             const msg = filamentosCargados.length === 0
                 ? 'No hay filamentos registrados.'
-                : 'Ningún filamento coincide con los filtros aplicados.';
+                : 'NingÃºn filamento coincide con los filtros aplicados.';
             tablaFilamentosBody.innerHTML = `<tr><td colspan="6" class="sin-resultados">${msg}</td></tr>`;
             return;
         }
@@ -345,14 +361,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${f.cantidadGramos} g</td>
                 <td>$${f.precioCompra}</td>
                 <td class="td-actions">
-                    <button class="btn-danger btn-del-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                    <button class="btn-danger btn-del-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">ðŸ—‘ Borrar</button>
                 </td>
             `;
             tablaFilamentosBody.appendChild(row);
         });
     }
 
-    // Mapeo de nombre de color en español a hex (bonus visual)
+    // Mapeo de nombre de color en espaÃ±ol a hex (bonus visual)
     function colorToHex(color) {
         const mapa = {
             rojo: '#ef4444', red: '#ef4444', azul: '#3b82f6', blue: '#3b82f6',
@@ -365,16 +381,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return mapa[color.toLowerCase().split(' ')[0]] || '#71717a';
     }
 
-    // Delegación de eventos para eliminar filamentos
+    // DelegaciÃ³n de eventos para eliminar filamentos
     if (tablaFilamentosBody) {
         tablaFilamentosBody.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-del-fil');
             if (!btn) return;
             const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este filamento del stock?');
+            const ok = await confirmar('Â¿Seguro que querÃ©s borrar este filamento del stock?');
             if (!ok) return;
             try {
-                const res = await fetch(`${API_BASE}/filamentos/${id}`, { method: 'DELETE' });
+                const res = await fetchAuth(`${API_BASE}/filamentos/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(`Error ${res.status}`);
                 mostrarToast('Filamento eliminado correctamente.');
                 cargarFilamentos();
@@ -400,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await fetch(`${API_BASE}/filamentos`, {
+                const res = await fetchAuth(`${API_BASE}/filamentos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -422,12 +438,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- CONEXIÓN HTTP 3: PEDIDOS Y KANBAN ---
+    // --- CONEXIÃ“N HTTP 3: PEDIDOS Y KANBAN ---
     // =======================================================
     async function cargarPedidos() {
         mostrarSpinner(tablaVentasBody, 6);
         try {
-            const res = await fetch(`${API_BASE}/pedidos`);
+            const res = await fetchAuth(`${API_BASE}/pedidos`);
             if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
             pedidosCargados = await res.json();
             actualizarKanban(pedidosCargados);
@@ -459,15 +475,15 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'kanban-card';
 
             const badgeClass = pedido.estadoPago === 'PAGADO' ? 'badge-pagado' : (pedido.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
-            const textoPago = pedido.estadoPago === 'SENADO' ? `SEÑADO ($${pedido.montoSena})` : pedido.estadoPago.replace('_', ' ');
+            const textoPago = pedido.estadoPago === 'SENADO' ? `SEÃ‘ADO ($${pedido.montoSena})` : pedido.estadoPago.replace('_', ' ');
 
             let botonAccion = '';
             if (pedido.estadoProduccion === 'PENDIENTE_HACER')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="EN_PRODUCCION">Imprimir ▶</button>`;
+                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="EN_PRODUCCION">Imprimir â–¶</button>`;
             else if (pedido.estadoProduccion === 'EN_PRODUCCION')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="PENDIENTE_ENTREGA">Terminar ✔</button>`;
+                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="PENDIENTE_ENTREGA">Terminar âœ”</button>`;
             else if (pedido.estadoProduccion === 'PENDIENTE_ENTREGA')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="ENTREGADO">Entregar 📦</button>`;
+                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="ENTREGADO">Entregar ðŸ“¦</button>`;
 
             card.innerHTML = `
                 <div class="card-header">
@@ -489,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Delegación de eventos en el Kanban
+    // DelegaciÃ³n de eventos en el Kanban
     const kanbanBoard = document.querySelector('.kanban-board');
     if (kanbanBoard) {
         kanbanBoard.addEventListener('click', async (e) => {
@@ -498,9 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = btn.getAttribute('data-id');
             const nextState = btn.getAttribute('data-next');
             try {
-                const res = await fetch(`${API_BASE}/pedidos/${id}/estado?nuevoEstado=${nextState}`, { method: 'PATCH' });
+                const res = await fetchAuth(`${API_BASE}/pedidos/${id}/estado?nuevoEstado=${nextState}`, { method: 'PATCH' });
                 if (!res.ok) throw new Error();
-                const textos = { EN_PRODUCCION: 'pasado a Producción', PENDIENTE_ENTREGA: 'listo para entregar', ENTREGADO: 'marcado como Entregado' };
+                const textos = { EN_PRODUCCION: 'pasado a ProducciÃ³n', PENDIENTE_ENTREGA: 'listo para entregar', ENTREGADO: 'marcado como Entregado' };
                 mostrarToast(`Pedido ${textos[nextState] || 'actualizado'}.`);
                 cargarPedidos();
             } catch {
@@ -519,14 +535,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtrados.length === 0) {
             const msg = pedidos.length === 0
                 ? 'No hay pedidos registrados.'
-                : 'Ningún pedido coincide con los filtros aplicados.';
+                : 'NingÃºn pedido coincide con los filtros aplicados.';
             tablaVentasBody.innerHTML = `<tr><td colspan="6" class="sin-resultados">${msg}</td></tr>`;
             return;
         }
 
         filtrados.forEach(p => {
             const row = document.createElement('tr');
-            const textoPago = p.estadoPago === 'SENADO' ? `SEÑADO ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
+            const textoPago = p.estadoPago === 'SENADO' ? `SEÃ‘ADO ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
             const estadoProdLabel = p.estadoProduccion.replace(/_/g, ' ');
 
@@ -537,23 +553,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="badge ${badgeClass}">${textoPago}</span></td>
                 <td><span class="badge" style="background-color:var(--bg-input)">${estadoProdLabel}</span></td>
                 <td class="td-actions">
-                    <button class="btn-danger btn-del-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                    <button class="btn-danger btn-del-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">ðŸ—‘ Borrar</button>
                 </td>
             `;
             tablaVentasBody.appendChild(row);
         });
     }
 
-    // Delegación de eventos para eliminar pedidos
+    // DelegaciÃ³n de eventos para eliminar pedidos
     if (tablaVentasBody) {
         tablaVentasBody.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-del-venta');
             if (!btn) return;
             const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este pedido?');
+            const ok = await confirmar('Â¿Seguro que querÃ©s borrar este pedido?');
             if (!ok) return;
             try {
-                const res = await fetch(`${API_BASE}/pedidos/${id}`, { method: 'DELETE' });
+                const res = await fetchAuth(`${API_BASE}/pedidos/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(`Error ${res.status}`);
                 mostrarToast('Pedido eliminado correctamente.');
                 cargarPedidos();
@@ -601,13 +617,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (filtrados.length === 0) {
             grid.innerHTML = `<p style="color:var(--text-muted);font-style:italic;padding:1rem;">${
-                entregados.length === 0 ? 'Todavía no hay pedidos entregados.' : 'Sin resultados para los filtros aplicados.'
+                entregados.length === 0 ? 'TodavÃ­a no hay pedidos entregados.' : 'Sin resultados para los filtros aplicados.'
             }</p>`;
             return;
         }
 
         filtrados.forEach(p => {
-            const textoPago = p.estadoPago === 'SENADO' ? `Señado ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
+            const textoPago = p.estadoPago === 'SENADO' ? `SeÃ±ado ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
 
             const card = document.createElement('div');
@@ -615,8 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="hc-cliente">${p.cliente}</div>
                 <div class="hc-info">
-                    <span>📅 Entregado: ${p.fechaEntrega || '-'}</span>
-                    <span>🧵 Material: ${p.materialColor || '-'}</span>
+                    <span>ðŸ“… Entregado: ${p.fechaEntrega || '-'}</span>
+                    <span>ðŸ§µ Material: ${p.materialColor || '-'}</span>
                 </div>
                 <div class="hc-footer">
                     <span class="hc-total">$${p.totalPedido}</span>
@@ -649,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await fetch(`${API_BASE}/pedidos`, {
+                const res = await fetchAuth(`${API_BASE}/pedidos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -672,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
-    // --- CONFIGURACIÓN DE FILTROS (setup de event listeners) ---
+    // --- CONFIGURACIÃ“N DE FILTROS (setup de event listeners) ---
     // =======================================================
     function setupFiltros() {
         const el = (id) => document.getElementById(id);
@@ -768,32 +784,71 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFiltros();
 
     // =======================================================
-    // --- GESTIÓN DE LOGIN ---
+    // --- GESTIÃ“N DE LOGIN (CON JWT Y BACKEND) ---
     // =======================================================
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = document.getElementById('username').value;
         const pass = document.getElementById('password').value;
-        if ((user === 'admin1' || user === 'admin2') && pass === '1234') {
-            loginContainer.classList.add('hidden');
-            dashboardContainer.classList.remove('hidden');
-            loginError.classList.add('hidden');
-            loginForm.reset();
-            cargarProductos();
-            cargarFilamentos();
-            cargarPedidos();
-        } else {
+        
+        loginError.classList.add('hidden');
+        
+        try {
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
+            });
+
+            if (!res.ok) {
+                loginError.classList.remove('hidden');
+                return;
+            }
+
+            const data = await res.json();
+            jwtToken = data.token;
+            localStorage.setItem('luma_jwt', jwtToken);
+            localStorage.setItem('luma_user', data.username);
+            
+            iniciarSesionUI();
+        } catch (error) {
+            console.error("Error en login:", error);
             loginError.classList.remove('hidden');
         }
     });
 
-    logoutBtn.addEventListener('click', () => {
+    function iniciarSesionUI() {
+        loginContainer.classList.add('hidden');
+        dashboardContainer.classList.remove('hidden');
+        loginForm.reset();
+        cargarProductos();
+        cargarFilamentos();
+        cargarPedidos();
+    }
+
+    function cerrarSesion(expirado = false) {
+        jwtToken = null;
+        localStorage.removeItem('luma_jwt');
+        localStorage.removeItem('luma_user');
+        
         loginContainer.classList.remove('hidden');
         dashboardContainer.classList.add('hidden');
         productosCargados = [];
         filamentosCargados = [];
         pedidosCargados = [];
-    });
+        
+        if (expirado) {
+            mostrarToast("Tu sesión ha expirado", 'warning');
+        }
+    }
+
+    logoutBtn.addEventListener('click', () => cerrarSesion());
+
+    // --- RESTAURAR SESIÓN AL RECARGAR PÁGINA ---
+    if (jwtToken) {
+        // Intentamos cargar la UI, si el token está vencido, fetchAuth cerrará la sesión.
+        iniciarSesionUI();
+    }
 
     navButtons.forEach(button => button.addEventListener('click', () => {
         navButtons.forEach(btn => btn.classList.remove('active'));
