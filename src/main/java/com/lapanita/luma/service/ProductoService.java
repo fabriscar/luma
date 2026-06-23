@@ -103,6 +103,60 @@ public class ProductoService {
         return productoGuardado;
     }
 
+    /** Actualizar un producto existente */
+    @Transactional
+    public Producto actualizar(Integer id, String nombre, Integer pesoGramos, java.math.BigDecimal precioBase, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
+        Producto producto = obtenerPorId(id);
+        producto.setNombre(nombre);
+        producto.setPesoGramos(pesoGramos);
+        producto.setPrecioBase(precioBase);
+
+        // Si se sube una nueva foto, se reemplaza la anterior
+        if (foto != null && !foto.isEmpty()) {
+            // Borrar foto vieja si existe
+            if (producto.getRutaFoto() != null) {
+                try {
+                    Files.deleteIfExists(Paths.get(producto.getRutaFoto()));
+                } catch (IOException e) {
+                    System.err.println("No se pudo eliminar foto antigua: " + e.getMessage());
+                }
+            }
+            String nombreFoto = UUID.randomUUID().toString() + "_" + foto.getOriginalFilename();
+            Path rutaFoto = this.rootFolder.resolve(nombreFoto);
+            Files.copy(foto.getInputStream(), rutaFoto, StandardCopyOption.REPLACE_EXISTING);
+            producto.setRutaFoto(rutaFoto.toString());
+        }
+
+        // Si se suben nuevos archivos STL, se reemplazan los anteriores
+        if (archivosStl != null && !archivosStl.isEmpty()) {
+            // Borrar STLs viejos
+            for (ProductoStl stl : producto.getStlFiles()) {
+                try {
+                    Files.deleteIfExists(Paths.get(stl.getRutaArchivo()));
+                } catch (IOException e) {
+                    System.err.println("No se pudo eliminar STL antiguo: " + e.getMessage());
+                }
+            }
+            // Borrar de BD
+            productoStlRepository.deleteAll(producto.getStlFiles());
+            producto.getStlFiles().clear();
+
+            for (MultipartFile stl : archivosStl) {
+                if (!stl.isEmpty()) {
+                    String nombreStl = UUID.randomUUID().toString() + "_" + stl.getOriginalFilename();
+                    Path rutaStl = this.rootFolder.resolve(nombreStl);
+                    Files.copy(stl.getInputStream(), rutaStl, StandardCopyOption.REPLACE_EXISTING);
+
+                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), rutaStl.toString(), producto);
+                    productoStlRepository.save(nuevoStl);
+                    producto.getStlFiles().add(nuevoStl);
+                }
+            }
+        }
+
+        return productoRepository.save(producto);
+    }
+
     /** Eliminar un producto y limpiar sus archivos del disco */
     @Transactional
     public void eliminar(Integer id) {

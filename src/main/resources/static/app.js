@@ -56,6 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let filtroPedidos     = { cliente: '', estadoPago: '', estadoProduccion: '' };
     let filtroKanban      = { cliente: '' };
 
+    // --- ESTADO DE EDICIÓN ---
+    let editProductoId = null;
+    let editFilamentoId = null;
+    let editPedidoId = null;
+
     // =======================================================
     // --- FUNCIONES DE FILTRADO ---
     // =======================================================
@@ -252,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>$${p.precioBase}</td>
                 <td>${stlBadges}</td>
                 <td class="td-actions">
+                    <button class="btn-warning btn-edit-prod" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">✏️ Editar</button>
                     <button class="btn-danger btn-del-prod" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
                 </td>
             `;
@@ -259,23 +265,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Delegación de eventos para eliminar productos
+    // Delegación de eventos para eliminar o editar productos
     if (tablaProductosBody) {
         tablaProductosBody.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-del-prod');
-            if (!btn) return;
-            const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este producto? Se eliminarán sus archivos físicos del servidor.');
-            if (!ok) return;
-            try {
-                const res = await fetchAuth(`${API_BASE}/productos/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error(`Error ${res.status}`);
-                mostrarToast('Producto eliminado correctamente.');
-                cargarProductos();
-            } catch (err) {
-                mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+            const btnDel = e.target.closest('.btn-del-prod');
+            if (btnDel) {
+                const id = btnDel.getAttribute('data-id');
+                const ok = await confirmar('¿Seguro que querés borrar este producto? Se eliminarán sus archivos físicos del servidor.');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/productos/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Producto eliminado correctamente.');
+                    cargarProductos();
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+                return;
+            }
+
+            const btnEdit = e.target.closest('.btn-edit-prod');
+            if (btnEdit) {
+                const id = btnEdit.getAttribute('data-id');
+                const prod = productosCargados.find(p => p.id == id);
+                if (prod) editarProducto(prod);
             }
         });
+    }
+
+    function editarProducto(prod) {
+        editProductoId = prod.id;
+        document.getElementById('prod-nombre').value = prod.nombre;
+        document.getElementById('prod-peso').value = prod.pesoGramos;
+        document.getElementById('prod-precio').value = prod.precioBase;
+        
+        const btnSubmit = document.getElementById('btn-submit-producto');
+        btnSubmit.textContent = 'Actualizar Producto';
+        
+        // Agregar botón cancelar si no existe
+        let btnCancel = document.getElementById('btn-cancel-producto');
+        if (!btnCancel) {
+            btnCancel = document.createElement('button');
+            btnCancel.id = 'btn-cancel-producto';
+            btnCancel.type = 'button';
+            btnCancel.className = 'btn-secondary btn-inline';
+            btnCancel.textContent = 'Cancelar';
+            btnCancel.style.marginLeft = '10px';
+            btnCancel.onclick = cancelarEdicionProducto;
+            btnSubmit.parentNode.appendChild(btnCancel);
+        }
+        btnCancel.style.display = 'inline-block';
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicionProducto() {
+        editProductoId = null;
+        productoForm.reset();
+        document.getElementById('btn-submit-producto').textContent = 'Guardar Producto';
+        const btnCancel = document.getElementById('btn-cancel-producto');
+        if (btnCancel) btnCancel.style.display = 'none';
     }
 
     if (productoForm) {
@@ -297,19 +346,27 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < stlInput.length; i++) formData.append('stlFiles', stlInput[i]);
 
             try {
-                const res = await fetchAuth(`${API_BASE}/productos`, { method: 'POST', body: formData });
+                let url = `${API_BASE}/productos`;
+                let method = 'POST';
+                if (editProductoId) {
+                    url = `${API_BASE}/productos/${editProductoId}`;
+                    method = 'PUT';
+                }
+
+                const res = await fetchAuth(url, { method: method, body: formData });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || `Error ${res.status}`);
                 }
-                productoForm.reset();
-                mostrarToast("Producto guardado exitosamente.");
+                
+                cancelarEdicionProducto(); // Resetea el form y variables
+                mostrarToast(editProductoId ? "Producto actualizado." : "Producto guardado exitosamente.");
                 cargarProductos();
             } catch (err) {
                 mostrarToast(err.message || "Error al guardar el producto.", 'error');
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.textContent = 'Guardar Producto';
+                btnSubmit.textContent = editProductoId ? 'Actualizar Producto' : 'Guardar Producto';
             }
         });
     }
@@ -361,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${f.cantidadGramos} g</td>
                 <td>$${f.precioCompra}</td>
                 <td class="td-actions">
+                    <button class="btn-warning btn-edit-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">✏️ Editar</button>
                     <button class="btn-danger btn-del-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
                 </td>
             `;
@@ -381,23 +439,67 @@ document.addEventListener('DOMContentLoaded', () => {
         return mapa[color.toLowerCase().split(' ')[0]] || '#71717a';
     }
 
-    // Delegación de eventos para eliminar filamentos
+    // Delegación de eventos para eliminar o editar filamentos
     if (tablaFilamentosBody) {
         tablaFilamentosBody.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-del-fil');
-            if (!btn) return;
-            const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este filamento del stock?');
-            if (!ok) return;
-            try {
-                const res = await fetchAuth(`${API_BASE}/filamentos/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error(`Error ${res.status}`);
-                mostrarToast('Filamento eliminado correctamente.');
-                cargarFilamentos();
-            } catch (err) {
-                mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+            const btnDel = e.target.closest('.btn-del-fil');
+            if (btnDel) {
+                const id = btnDel.getAttribute('data-id');
+                const ok = await confirmar('¿Seguro que querés borrar este filamento del stock?');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/filamentos/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Filamento eliminado correctamente.');
+                    cargarFilamentos();
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+                return;
+            }
+
+            const btnEdit = e.target.closest('.btn-edit-fil');
+            if (btnEdit) {
+                const id = btnEdit.getAttribute('data-id');
+                const fil = filamentosCargados.find(f => f.id == id);
+                if (fil) editarFilamento(fil);
             }
         });
+    }
+
+    function editarFilamento(fil) {
+        editFilamentoId = fil.id;
+        document.getElementById('fil-tipo').value = fil.tipo;
+        document.getElementById('fil-marca').value = fil.marca;
+        document.getElementById('fil-color').value = fil.color;
+        document.getElementById('fil-cantidad').value = fil.cantidadGramos;
+        document.getElementById('fil-precio').value = fil.precioCompra;
+
+        const btnSubmit = document.getElementById('btn-submit-filamento');
+        btnSubmit.textContent = 'Actualizar Filamento';
+
+        let btnCancel = document.getElementById('btn-cancel-filamento');
+        if (!btnCancel) {
+            btnCancel = document.createElement('button');
+            btnCancel.id = 'btn-cancel-filamento';
+            btnCancel.type = 'button';
+            btnCancel.className = 'btn-secondary btn-inline';
+            btnCancel.textContent = 'Cancelar';
+            btnCancel.style.marginLeft = '10px';
+            btnCancel.onclick = cancelarEdicionFilamento;
+            btnSubmit.parentNode.appendChild(btnCancel);
+        }
+        btnCancel.style.display = 'inline-block';
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicionFilamento() {
+        editFilamentoId = null;
+        filamentoForm.reset();
+        document.getElementById('btn-submit-filamento').textContent = 'Guardar Filamento';
+        const btnCancel = document.getElementById('btn-cancel-filamento');
+        if (btnCancel) btnCancel.style.display = 'none';
     }
 
     if (filamentoForm) {
@@ -416,8 +518,15 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await fetchAuth(`${API_BASE}/filamentos`, {
-                    method: 'POST',
+                let url = `${API_BASE}/filamentos`;
+                let method = 'POST';
+                if (editFilamentoId) {
+                    url = `${API_BASE}/filamentos/${editFilamentoId}`;
+                    method = 'PUT';
+                }
+
+                const res = await fetchAuth(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -425,14 +534,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || `Error ${res.status}`);
                 }
-                filamentoForm.reset();
-                mostrarToast("Filamento guardado exitosamente.");
+                
+                cancelarEdicionFilamento();
+                mostrarToast(editFilamentoId ? "Filamento actualizado." : "Filamento guardado exitosamente.");
                 cargarFilamentos();
             } catch (err) {
                 mostrarToast(err.message || "Error al guardar el filamento.", 'error');
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.textContent = 'Guardar Filamento';
+                btnSubmit.textContent = editFilamentoId ? 'Actualizar Filamento' : 'Guardar Filamento';
             }
         });
     }
@@ -553,6 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="badge ${badgeClass}">${textoPago}</span></td>
                 <td><span class="badge" style="background-color:var(--bg-input)">${estadoProdLabel}</span></td>
                 <td class="td-actions">
+                    <button class="btn-warning btn-edit-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">✏️ Editar</button>
                     <button class="btn-danger btn-del-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
                 </td>
             `;
@@ -560,23 +671,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Delegación de eventos para eliminar pedidos
+    // Delegación de eventos para eliminar o editar pedidos
     if (tablaVentasBody) {
         tablaVentasBody.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-del-venta');
-            if (!btn) return;
-            const id = btn.getAttribute('data-id');
-            const ok = await confirmar('¿Seguro que querés borrar este pedido?');
-            if (!ok) return;
-            try {
-                const res = await fetchAuth(`${API_BASE}/pedidos/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error(`Error ${res.status}`);
-                mostrarToast('Pedido eliminado correctamente.');
-                cargarPedidos();
-            } catch (err) {
-                mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+            const btnDel = e.target.closest('.btn-del-venta');
+            if (btnDel) {
+                const id = btnDel.getAttribute('data-id');
+                const ok = await confirmar('¿Seguro que querés borrar este pedido?');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/pedidos/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Pedido eliminado correctamente.');
+                    cargarPedidos();
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+                return;
+            }
+
+            const btnEdit = e.target.closest('.btn-edit-venta');
+            if (btnEdit) {
+                const id = btnEdit.getAttribute('data-id');
+                const pedido = pedidosCargados.find(p => p.id == id);
+                if (pedido) editarPedido(pedido);
             }
         });
+    }
+
+    function editarPedido(pedido) {
+        editPedidoId = pedido.id;
+        document.getElementById('venta-cliente').value = pedido.cliente;
+        document.getElementById('venta-entrega').value = pedido.fechaEntrega;
+        document.getElementById('venta-producto').value = ""; // No podemos setear el producto original facilmente, o sí si es parte de materialColor
+        
+        // Tratar de hacer match con el materialColor en los selects
+        // Como el backend solo guarda un string, no podemos re-seleccionar el dropdown exacto,
+        // pero podemos setear el estado de pago.
+        selectEstadoPago.value = pedido.estadoPago;
+        if (pedido.estadoPago === 'SENADO') {
+            groupMontoSena.classList.remove('hidden');
+            inputMontoSena.value = pedido.montoSena;
+        } else {
+            groupMontoSena.classList.add('hidden');
+            inputMontoSena.value = '';
+        }
+
+        const btnSubmit = document.getElementById('btn-submit-venta');
+        btnSubmit.textContent = 'Actualizar Pedido';
+
+        let btnCancel = document.getElementById('btn-cancel-venta');
+        if (!btnCancel) {
+            btnCancel = document.createElement('button');
+            btnCancel.id = 'btn-cancel-venta';
+            btnCancel.type = 'button';
+            btnCancel.className = 'btn-secondary btn-inline';
+            btnCancel.textContent = 'Cancelar';
+            btnCancel.style.marginLeft = '10px';
+            btnCancel.onclick = cancelarEdicionPedido;
+            btnSubmit.parentNode.appendChild(btnCancel);
+        }
+        btnCancel.style.display = 'inline-block';
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicionPedido() {
+        editPedidoId = null;
+        ventaForm.reset();
+        groupMontoSena.classList.add('hidden');
+        document.getElementById('btn-submit-venta').textContent = 'Crear Pedido';
+        const btnCancel = document.getElementById('btn-cancel-venta');
+        if (btnCancel) btnCancel.style.display = 'none';
     }
 
     // =======================================================
@@ -739,8 +905,18 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await fetchAuth(`${API_BASE}/pedidos`, {
-                    method: 'POST',
+                let url = `${API_BASE}/pedidos`;
+                let method = 'POST';
+                if (editPedidoId) {
+                    url = `${API_BASE}/pedidos/${editPedidoId}`;
+                    method = 'PUT';
+                    // Conservamos el estado de produccion anterior en modo edicion
+                    const pedidoOrig = pedidosCargados.find(p => p.id === editPedidoId);
+                    if (pedidoOrig) payload.estadoProduccion = pedidoOrig.estadoProduccion;
+                }
+
+                const res = await fetchAuth(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -748,15 +924,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || `Error ${res.status}`);
                 }
-                ventaForm.reset();
-                groupMontoSena.classList.add('hidden');
-                mostrarToast(`Pedido para ${payload.cliente} creado. Total: $${totalCalculado}`);
+                
+                cancelarEdicionPedido();
+                mostrarToast(editPedidoId ? "Pedido actualizado." : `Pedido para ${payload.cliente} creado. Total: $${totalCalculado}`);
                 cargarPedidos();
             } catch (err) {
-                mostrarToast(err.message || "Error al crear el pedido.", 'error');
+                mostrarToast(err.message || "Error al guardar el pedido.", 'error');
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.textContent = 'Crear Pedido';
+                btnSubmit.textContent = editPedidoId ? 'Actualizar Pedido' : 'Crear Pedido';
             }
         });
     }

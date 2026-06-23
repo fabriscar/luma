@@ -68,6 +68,24 @@ public class ProductoController {
         }
     }
 
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<Producto> actualizar(
+            @PathVariable Integer id,
+            @RequestParam("nombre") String nombre,
+            @RequestParam("pesoGramos") Integer pesoGramos,
+            @RequestParam("precioBase") BigDecimal precioBase,
+            @RequestParam(value = "foto", required = false) MultipartFile foto,
+            @RequestParam(value = "stlFiles", required = false) List<MultipartFile> stlFiles) {
+        try {
+            Producto actualizado = productoService.actualizar(id, nombre, pesoGramos, precioBase, foto, stlFiles);
+            return ResponseEntity.ok(actualizado);
+        } catch (IOException e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         productoService.eliminar(id);
