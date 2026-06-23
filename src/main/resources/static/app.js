@@ -638,9 +638,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="hc-total">$${p.totalPedido}</span>
                     <span class="badge ${badgeClass}">${textoPago}</span>
                 </div>
+                <div class="hc-actions">
+                    <button class="btn-pdf btn-hist-pdf" data-id="${p.id}">📄 PDF</button>
+                    <button class="btn-danger btn-hist-del" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                </div>
             `;
             grid.appendChild(card);
         });
+
+        // Delegación de eventos para borrar y PDF en el historial
+        grid.querySelectorAll('.btn-hist-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const ok = await confirmar('¿Seguro que querés eliminar este pedido del historial? Esta acción no se puede deshacer.');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/pedidos/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Pedido eliminado del historial.');
+                    cargarPedidos();
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+            });
+        });
+
+        grid.querySelectorAll('.btn-hist-pdf').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.getAttribute('data-id'));
+                const pedido = filtrados.find(p => p.id === id);
+                if (pedido) generarPdfPedido(pedido);
+            });
+        });
+    }
+
+    // =======================================================
+    // --- GENERADOR DE PDF (comprobante para el cliente) ---
+    // =======================================================
+    function generarPdfPedido(pedido) {
+        const textoPago = pedido.estadoPago === 'SENADO'
+            ? `Señado ($${pedido.montoSena})`
+            : pedido.estadoPago === 'PAGADO'
+            ? 'Pagado Total'
+            : 'No Pagado';
+
+        const fechaPedidoStr = pedido.fechaPedido
+            ? new Date(pedido.fechaPedido).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : '-';
+
+        const printArea = document.getElementById('print-area');
+        printArea.innerHTML = `
+            <div class="comprobante">
+                <div class="comp-header">
+                    <h1>LUMA</h1>
+                    <p class="comp-subtitle">Impresión 3D Personalizada</p>
+                </div>
+                <div class="comp-divider"></div>
+                <div class="comp-section">
+                    <p><span class="comp-label">Cliente:</span> ${pedido.cliente}</p>
+                    <p><span class="comp-label">Fecha del pedido:</span> ${fechaPedidoStr}</p>
+                    <p><span class="comp-label">Fecha de entrega:</span> ${pedido.fechaEntrega || '-'}</p>
+                </div>
+                <div class="comp-divider"></div>
+                <div class="comp-section">
+                    <p><span class="comp-label">Material / Color:</span> ${pedido.materialColor || '-'}</p>
+                    <p><span class="comp-label">Estado de producción:</span> Entregado ✔</p>
+                </div>
+                <div class="comp-divider"></div>
+                <div class="comp-section comp-totales">
+                    <p><span class="comp-label">Estado de pago:</span> ${textoPago}</p>
+                    <p class="comp-total-linea"><span class="comp-label">TOTAL:</span> <strong>$${pedido.totalPedido}</strong></p>
+                </div>
+                <div class="comp-footer">
+                    <p>¡Gracias por tu compra!</p>
+                </div>
+            </div>
+        `;
+        window.print();
     }
 
     if (ventaForm) {
