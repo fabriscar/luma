@@ -21,8 +21,19 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Encriptar contraseñas antiguas que están en texto plano
         List<Usuario> usuarios = usuarioRepository.findAll();
+
+        // Si la base está vacía (primer deploy), crear el usuario admin por defecto
+        if (usuarios.isEmpty()) {
+            Usuario admin = new Usuario();
+            admin.setUsername("admin");
+            admin.setPasswordHash(passwordEncoder.encode("admin123"));
+            usuarioRepository.save(admin);
+            System.out.println("=== Usuario admin creado por defecto (primera vez) ===");
+            return;
+        }
+
+        // Migrar contraseñas antiguas que estén en texto plano
         for (Usuario u : usuarios) {
             // BCrypt hashes siempre empiezan con $2a$, $2b$ o $2y$
             if (!u.getPasswordHash().startsWith("$2")) {
