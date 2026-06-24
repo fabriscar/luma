@@ -44,10 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const cardsProgreso = document.getElementById('cards-progreso');
     const cardsEntrega = document.getElementById('cards-entrega');
 
+    const compraForm = document.getElementById('compra-form');
+    const selectCompraFilamento = document.getElementById('compra-filamento');
+    const tablaComprasBody = document.getElementById('tabla-compras-body');
+
     // --- VARIABLES DE ESTADO LOCAL ---
     let productosCargados = [];
     let filamentosCargados = [];
     let pedidosCargados = [];   // Guardamos todos los pedidos para filtrar sin re-fetch
+    let comprasCargadas = [];
     let filtroHistorial = { cliente: '', estadoPago: '' };
 
     // --- ESTADO DE FILTROS ---
@@ -204,6 +209,16 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.textContent = `${f.tipo} (${f.color}) - ${f.marca}`;
             selectMaterial.appendChild(opt);
         });
+
+        if (selectCompraFilamento) {
+            selectCompraFilamento.innerHTML = '<option value="">Ninguno / Genérico</option>';
+            filamentosCargados.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.id;
+                opt.textContent = `${f.tipo} ${f.marca} (${f.color})`;
+                selectCompraFilamento.appendChild(opt);
+            });
+        }
     }
 
     // =======================================================
@@ -249,10 +264,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? p.stlFiles.map(stl => `<a href="${API_BASE}/stl/descargar/${stl.id}" class="stl-tag" style="text-decoration:none;">📥 ${stl.nombreArchivo}</a>`).join('')
                 : '<small style="color:var(--text-muted)">Ninguno</small>';
 
+            const detallesHTML = p.detalles ? `<br><small style="color:var(--text-muted);font-style:italic;display:block;margin-top:4px;">💬 ${p.detalles}</small>` : '';
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${imgTag}${sinFotoDiv}</td>
-                <td><strong>${p.nombre}</strong></td>
+                <td><strong>${p.nombre}</strong>${detallesHTML}</td>
                 <td>${p.pesoGramos} g</td>
                 <td>$${p.precioBase}</td>
                 <td>${stlBadges}</td>
@@ -298,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('prod-nombre').value = prod.nombre;
         document.getElementById('prod-peso').value = prod.pesoGramos;
         document.getElementById('prod-precio').value = prod.precioBase;
+        if (document.getElementById('prod-detalles')) document.getElementById('prod-detalles').value = prod.detalles || '';
         
         const btnSubmit = document.getElementById('btn-submit-producto');
         btnSubmit.textContent = 'Actualizar Producto';
@@ -338,6 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('nombre', document.getElementById('prod-nombre').value);
             formData.append('pesoGramos', document.getElementById('prod-peso').value);
             formData.append('precioBase', document.getElementById('prod-precio').value);
+            if (document.getElementById('prod-detalles')) {
+                formData.append('detalles', document.getElementById('prod-detalles').value);
+            }
 
             const fotoInput = document.getElementById('prod-foto').files[0];
             if (fotoInput) formData.append('foto', fotoInput);
@@ -548,6 +569,113 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =======================================================
+    // --- CONEXIÓN HTTP 2.5: COMPRAS DE FILAMENTOS ---
+    // =======================================================
+    async function cargarCompras() {
+        try {
+            const res = await fetchAuth(`${API_BASE}/compras-filamentos`);
+            if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
+            comprasCargadas = await res.json();
+            renderizarTablaCompras();
+            renderizarHistorial(); // Actualiza el historial con el nuevo gasto
+        } catch (err) {
+            console.error("Error al traer compras:", err);
+            if (tablaComprasBody) tablaComprasBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">Error al cargar compras.</td></tr>`;
+        }
+    }
+
+    function renderizarTablaCompras() {
+        if (!tablaComprasBody) return;
+        tablaComprasBody.innerHTML = '';
+
+        if (comprasCargadas.length === 0) {
+            tablaComprasBody.innerHTML = `<tr><td colspan="5" class="sin-resultados">No hay compras registradas.</td></tr>`;
+            return;
+        }
+
+        // Ordenamos por fecha descendente
+        const ordenadas = [...comprasCargadas].sort((a, b) => new Date(b.fechaCompra) - new Date(a.fechaCompra));
+
+        ordenadas.forEach(c => {
+            const row = document.createElement('tr');
+            let descStr = c.descripcion;
+            if (c.filamentoId) {
+                const f = filamentosCargados.find(fil => fil.id === c.filamentoId);
+                if (f) descStr = `<strong>${f.tipo} ${f.marca} (${f.color})</strong><br><small>${c.descripcion}</small>`;
+            }
+            row.innerHTML = `
+                <td>${c.fechaCompra}</td>
+                <td>${descStr}</td>
+                <td>${c.cantidadGramos} g</td>
+                <td><strong>$${c.montoTotal}</strong></td>
+                <td class="td-actions">
+                    <button class="btn-danger btn-del-compra" data-id="${c.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                </td>
+            `;
+            tablaComprasBody.appendChild(row);
+        });
+    }
+
+    // Delegación para borrar compras
+    if (tablaComprasBody) {
+        tablaComprasBody.addEventListener('click', async (e) => {
+            const btnDel = e.target.closest('.btn-del-compra');
+            if (btnDel) {
+                const id = btnDel.getAttribute('data-id');
+                const ok = await confirmar('¿Seguro que querés borrar esta compra? Se restará el stock que había sumado.');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/compras-filamentos/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Compra eliminada correctamente.');
+                    cargarCompras();
+                    cargarFilamentos(); // Recargar stock
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+            }
+        });
+    }
+
+    // Submit de nueva compra
+    if (compraForm) {
+        compraForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btnSubmit = document.getElementById('btn-submit-compra');
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Registrando...';
+
+            const payload = {
+                fechaCompra: document.getElementById('compra-fecha').value,
+                filamentoId: selectCompraFilamento.value ? parseInt(selectCompraFilamento.value) : null,
+                descripcion: document.getElementById('compra-desc').value || 'Compra de Insumos',
+                cantidadGramos: parseInt(document.getElementById('compra-cantidad').value) || 0,
+                montoTotal: parseFloat(document.getElementById('compra-monto').value) || 0
+            };
+
+            try {
+                const res = await fetchAuth(`${API_BASE}/compras-filamentos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error(`Error ${res.status}`);
+                
+                compraForm.reset();
+                document.getElementById('compra-fecha').value = new Date().toISOString().split('T')[0];
+                mostrarToast("Compra registrada correctamente.");
+                cargarCompras();
+                if (payload.filamentoId) cargarFilamentos(); // Recargar stock si se asoció a un filamento
+            } catch (err) {
+                mostrarToast(err.message || "Error al registrar compra.", 'error');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Registrar Compra';
+            }
+        });
+    }
+
+    // =======================================================
     // --- CONEXIÓN HTTP 3: PEDIDOS Y KANBAN ---
     // =======================================================
     async function cargarPedidos() {
@@ -605,6 +733,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 listaProductos = `<div class="kanban-producto"><span class="kanban-prod-qty">${pedido.cantidad || 1}x</span> ${pedido.nombreProducto}<span class="kanban-prod-mat">${pedido.materialColor || ''}</span></div>`;
             } else {
                 listaProductos = `<div class="kanban-producto kanban-prod-vacio">Sin producto asignado</div>`;
+            }
+            if (pedido.detalles) {
+                listaProductos += `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -5px; margin-bottom: 10px; padding-left: 5px;">💬 ${pedido.detalles}</div>`;
             }
 
             card.innerHTML = `
@@ -686,9 +817,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
             const estadoProdLabel = p.estadoProduccion.replace(/_/g, ' ');
 
+            const detallesHTML = p.detalles ? `<br><small style="color:var(--text-muted);font-style:italic;">💬 ${p.detalles}</small>` : '';
+
             const productoTexto = p.nombreProducto
-                ? `<strong>${p.cantidad || 1}x</strong> ${p.nombreProducto}<br><small style="color:var(--text-muted)">${p.materialColor || '-'}</small>`
-                : `<span style="color:var(--text-muted);font-style:italic">—</span>`;
+                ? `<strong>${p.cantidad || 1}x</strong> ${p.nombreProducto}<br><small style="color:var(--text-muted)">${p.materialColor || '-'}</small>${detallesHTML}`
+                : `<span style="color:var(--text-muted);font-style:italic">—</span>${detallesHTML}`;
 
             row.innerHTML = `
                 <td><strong>${p.cliente}</strong></td>
@@ -739,6 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('venta-cliente').value = pedido.cliente;
         document.getElementById('venta-entrega').value = pedido.fechaEntrega;
         document.getElementById('venta-producto').value = ""; // No podemos setear el producto original facilmente, o sí si es parte de materialColor
+        if (document.getElementById('venta-detalles')) document.getElementById('venta-detalles').value = pedido.detalles || '';
         
         // Tratar de hacer match con el materialColor en los selects
         // Como el backend solo guarda un string, no podemos re-seleccionar el dropdown exacto,
@@ -797,13 +931,21 @@ document.addEventListener('DOMContentLoaded', () => {
             + entregados
             .filter(p => p.estadoPago === 'SENADO')
             .reduce((sum, p) => sum + parseFloat(p.montoSena || 0), 0);
+            
+        const totalGastos = comprasCargadas.reduce((sum, c) => sum + parseFloat(c.montoTotal || 0), 0);
+        const saldoNeto = totalCobrado - totalGastos;
 
         const elTotalPed = document.getElementById('hist-total-pedidos');
         const elFacturado = document.getElementById('hist-total-facturado');
         const elCobrado   = document.getElementById('hist-total-cobrado');
+        const elGastos    = document.getElementById('hist-total-gastos');
+        const elSaldoNeto = document.getElementById('hist-saldo-neto');
+        
         if (elTotalPed)  elTotalPed.textContent  = entregados.length;
         if (elFacturado) elFacturado.textContent = `$${totalFacturado.toFixed(2)}`;
         if (elCobrado)   elCobrado.textContent   = `$${totalCobrado.toFixed(2)}`;
+        if (elGastos)    elGastos.textContent    = `$${totalGastos.toFixed(2)}`;
+        if (elSaldoNeto) elSaldoNeto.textContent = `$${saldoNeto.toFixed(2)}`;
 
         // Aplicar filtros
         const filtrados = entregados.filter(p => {
@@ -947,7 +1089,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 estadoProduccion: 'PENDIENTE_HACER',
                 nombreProducto: prodRef ? prodRef.nombre : null,
                 cantidad: cantidad,
-                materialColor: selectMaterial.options[selectMaterial.selectedIndex]?.text || ''
+                materialColor: selectMaterial.options[selectMaterial.selectedIndex]?.text || '',
+                detalles: document.getElementById('venta-detalles') ? document.getElementById('venta-detalles').value : ''
             };
 
             try {
@@ -1120,6 +1263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarProductos();
         cargarFilamentos();
         cargarPedidos();
+        cargarCompras();
     }
 
     function cerrarSesion(expirado = false) {
@@ -1132,6 +1276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         productosCargados = [];
         filamentosCargados = [];
         pedidosCargados = [];
+        comprasCargadas = [];
         
         if (expirado) {
             mostrarToast("Tu sesión ha expirado", 'warning');

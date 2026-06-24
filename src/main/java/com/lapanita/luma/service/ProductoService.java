@@ -97,11 +97,12 @@ public class ProductoService {
 
     /** Actualizar un producto existente en Cloudinary */
     @Transactional
-    public Producto actualizar(Integer id, String nombre, Integer pesoGramos, java.math.BigDecimal precioBase, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
+    public Producto actualizar(Integer id, String nombre, Integer pesoGramos, java.math.BigDecimal precioBase, String detalles, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
         Producto producto = obtenerPorId(id);
         producto.setNombre(nombre);
         producto.setPesoGramos(pesoGramos);
         producto.setPrecioBase(precioBase);
+        producto.setDetalles(detalles);
 
         Cloudinary cloudinary = getCloudinary();
 

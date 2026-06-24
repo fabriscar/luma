@@ -32,6 +32,9 @@ public class Producto {
     @JsonManagedReference  // "Lado padre" — Jackson serializa esta lista normalmente
     private List<ProductoStl> stlFiles = new ArrayList<>();
 
+    @Column(name = "detalles", length = 500)
+    private String detalles;
+
     // Constructor vacío requerido por JPA
     public Producto() {}
 
@@ -60,4 +63,7 @@ public class Producto {
 
     public List<ProductoStl> getStlFiles() { return stlFiles; }
     public void setStlFiles(List<ProductoStl> stlFiles) { this.stlFiles = stlFiles; }
+
+    public String getDetalles() { return detalles; }
+    public void setDetalles(String detalles) { this.detalles = detalles; }
 }

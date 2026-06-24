@@ -45,6 +45,7 @@ public class PedidoController {
         pedido.setNombreProducto(pedidoActualizado.getNombreProducto());
         pedido.setCantidad(pedidoActualizado.getCantidad());
         pedido.setMaterialColor(pedidoActualizado.getMaterialColor());
+        pedido.setDetalles(pedidoActualizado.getDetalles());
         return ResponseEntity.ok(pedidoService.guardar(pedido));
     }
 

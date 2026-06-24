@@ -100,6 +100,10 @@
                         <label for="venta-material">Color / Material</label>
                         <select id="venta-material" required></select>
                     </div>
+                    <div class="form-group" style="min-width: 150px; flex: 1;">
+                        <label for="venta-detalles">Detalles (Opcional)</label>
+                        <input type="text" id="venta-detalles" placeholder="Aclaraciones, medidas, etc.">
+                    </div>
                     <div class="form-group" style="min-width: 60px; flex: 0.4;">
                         <label for="venta-cantidad">Cant.</label>
                         <input type="number" id="venta-cantidad" value="1" min="1" required>
@@ -184,6 +188,10 @@
                         <label for="prod-precio">Precio Base ($)</label>
                         <input type="number" step="0.01" id="prod-precio" required>
                     </div>
+                    <div class="form-group" style="min-width: 150px; flex: 1;">
+                        <label for="prod-detalles">Detalles / Medidas (Opcional)</label>
+                        <input type="text" id="prod-detalles" placeholder="Especificaciones del modelo...">
+                    </div>
                     <div class="form-group">
                         <label for="prod-foto">Foto Producto</label>
                         <input type="file" id="prod-foto" accept="image/*">
@@ -247,6 +255,14 @@
                     <div class="resumen-card">
                         <span class="rc-valor" id="hist-total-cobrado">$0</span>
                         <span class="rc-label">Total Cobrado</span>
+                    </div>
+                    <div class="resumen-card">
+                        <span class="rc-valor" id="hist-total-gastos">$0</span>
+                        <span class="rc-label">Gastos (Filamentos)</span>
+                    </div>
+                    <div class="resumen-card">
+                        <span class="rc-valor" id="hist-saldo-neto">$0</span>
+                        <span class="rc-label">Saldo Neto</span>
                     </div>
                 </div>
 
@@ -335,6 +351,50 @@
                             </tr>
                         </thead>
                         <tbody id="tabla-filamentos-body"></tbody>
+                    </table>
+                </div>
+
+                <hr style="border: 1px solid var(--border); margin: 2rem 0;">
+
+                <h2 id="title-compra-form">Registrar Compra de Filamento (Gastos)</h2>
+                <form id="compra-form" class="inline-form">
+                    <div class="form-group">
+                        <label for="compra-fecha">Fecha</label>
+                        <input type="date" id="compra-fecha" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="compra-filamento">Filamento Asociado</label>
+                        <select id="compra-filamento">
+                            <option value="">Ninguno / Genérico</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="min-width: 150px; flex: 1;">
+                        <label for="compra-desc">Descripción (Opcional si elige filamento)</label>
+                        <input type="text" id="compra-desc" placeholder="Ej: 1kg PLA Negro Printalot">
+                    </div>
+                    <div class="form-group">
+                        <label for="compra-cantidad">Cantidad (Gramos a sumar)</label>
+                        <input type="number" id="compra-cantidad" value="1000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="compra-monto">Monto Total ($)</label>
+                        <input type="number" step="0.01" id="compra-monto" required>
+                    </div>
+                    <button type="submit" id="btn-submit-compra" class="btn-primary btn-inline">Registrar Compra</button>
+                </form>
+
+                <div class="table-container" style="margin-top: 1rem;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripción / Filamento</th>
+                                <th>Gramos</th>
+                                <th>Costo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-compras-body"></tbody>
                     </table>
                 </div>
             </section>

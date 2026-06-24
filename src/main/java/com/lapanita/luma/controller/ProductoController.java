@@ -52,10 +52,12 @@ public class ProductoController {
             @RequestParam("nombre") String nombre,
             @RequestParam("pesoGramos") Integer pesoGramos,
             @RequestParam("precioBase") BigDecimal precioBase,
+            @RequestParam(value = "detalles", required = false) String detalles,
             @RequestParam(value = "foto", required = false) MultipartFile foto,
             @RequestParam(value = "stlFiles", required = false) List<MultipartFile> stlFiles) {
         try {
             Producto producto = new Producto(nombre, pesoGramos, precioBase, null);
+            producto.setDetalles(detalles);
             Producto guardado = productoService.guardar(producto, foto, stlFiles);
             return new ResponseEntity<>(guardado, HttpStatus.CREATED);
         } catch (IOException e) {
@@ -69,10 +71,11 @@ public class ProductoController {
             @RequestParam("nombre") String nombre,
             @RequestParam("pesoGramos") Integer pesoGramos,
             @RequestParam("precioBase") BigDecimal precioBase,
+            @RequestParam(value = "detalles", required = false) String detalles,
             @RequestParam(value = "foto", required = false) MultipartFile foto,
             @RequestParam(value = "stlFiles", required = false) List<MultipartFile> stlFiles) {
         try {
-            Producto actualizado = productoService.actualizar(id, nombre, pesoGramos, precioBase, foto, stlFiles);
+            Producto actualizado = productoService.actualizar(id, nombre, pesoGramos, precioBase, detalles, foto, stlFiles);
             return ResponseEntity.ok(actualizado);
         } catch (IOException e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);

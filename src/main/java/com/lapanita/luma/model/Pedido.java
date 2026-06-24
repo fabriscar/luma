@@ -45,6 +45,9 @@ public class Pedido {
     @Column(name = "material_color", length = 150)
     private String materialColor;
 
+    @Column(name = "detalles", length = 500)
+    private String detalles;
+
     public Pedido() {}
 
     public Pedido(String cliente, java.time.LocalDate fechaEntrega, BigDecimal totalPedido, EstadoPago estadoPago, BigDecimal montoSena) {
@@ -88,4 +91,7 @@ public class Pedido {
 
     public String getMaterialColor() { return materialColor; }
     public void setMaterialColor(String materialColor) { this.materialColor = materialColor; }
+
+    public String getDetalles() { return detalles; }
+    public void setDetalles(String detalles) { this.detalles = detalles; }
 }
