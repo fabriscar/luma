@@ -363,13 +363,32 @@
                         <input type="date" id="compra-fecha" required>
                     </div>
                     <div class="form-group">
-                        <label for="compra-filamento">Filamento Asociado</label>
+                        <label for="compra-filamento">Tipo de Compra</label>
                         <select id="compra-filamento">
-                            <option value="">Ninguno / Genérico</option>
+                            <option value="generico">Gasto Genérico / Insumos</option>
+                            <option value="nuevo">➕ Crear Filamento Nuevo</option>
+                            <optgroup label="Filamentos Existentes" id="compra-optgroup-existentes">
+                                <!-- Opciones cargadas por JS -->
+                            </optgroup>
                         </select>
                     </div>
+
+                    <!-- Campos ocultos por defecto, se muestran si elige "nuevo" -->
+                    <div class="form-group compra-nuevo-fields hidden">
+                        <label for="compra-nuevo-tipo">Tipo</label>
+                        <input type="text" id="compra-nuevo-tipo" placeholder="Ej: PLA">
+                    </div>
+                    <div class="form-group compra-nuevo-fields hidden">
+                        <label for="compra-nuevo-marca">Marca</label>
+                        <input type="text" id="compra-nuevo-marca" placeholder="Ej: Printalot">
+                    </div>
+                    <div class="form-group compra-nuevo-fields hidden">
+                        <label for="compra-nuevo-color">Color</label>
+                        <input type="text" id="compra-nuevo-color" placeholder="Ej: Rojo">
+                    </div>
+
                     <div class="form-group" style="min-width: 150px; flex: 1;">
-                        <label for="compra-desc">Descripción (Opcional si elige filamento)</label>
+                        <label for="compra-desc">Descripción (Opcional)</label>
                         <input type="text" id="compra-desc" placeholder="Ej: 1kg PLA Negro Printalot">
                     </div>
                     <div class="form-group">

@@ -211,13 +211,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (selectCompraFilamento) {
-            selectCompraFilamento.innerHTML = '<option value="">Ninguno / Genérico</option>';
-            filamentosCargados.forEach(f => {
-                const opt = document.createElement('option');
-                opt.value = f.id;
-                opt.textContent = `${f.tipo} ${f.marca} (${f.color})`;
-                selectCompraFilamento.appendChild(opt);
-            });
+            const optgroup = document.getElementById('compra-optgroup-existentes');
+            if (optgroup) {
+                optgroup.innerHTML = '';
+                filamentosCargados.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.id;
+                    opt.textContent = `${f.tipo} ${f.marca} (${f.color})`;
+                    optgroup.appendChild(opt);
+                });
+            }
         }
     }
 
@@ -637,6 +640,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Toggle de campos para "Nuevo Filamento" en compras
+    if (selectCompraFilamento) {
+        selectCompraFilamento.addEventListener('change', () => {
+            const isNuevo = selectCompraFilamento.value === 'nuevo';
+            document.querySelectorAll('.compra-nuevo-fields').forEach(el => {
+                if (isNuevo) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+                
+                // Hacer requeridos los campos solo si es nuevo
+                const input = el.querySelector('input');
+                if (input) input.required = isNuevo;
+            });
+        });
+    }
+
     // Submit de nueva compra
     if (compraForm) {
         compraForm.addEventListener('submit', async (e) => {
@@ -645,27 +663,53 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSubmit.disabled = true;
             btnSubmit.textContent = 'Registrando...';
 
-            const payload = {
-                fechaCompra: document.getElementById('compra-fecha').value,
-                filamentoId: selectCompraFilamento.value ? parseInt(selectCompraFilamento.value) : null,
-                descripcion: document.getElementById('compra-desc').value || 'Compra de Insumos',
-                cantidadGramos: parseInt(document.getElementById('compra-cantidad').value) || 0,
-                montoTotal: parseFloat(document.getElementById('compra-monto').value) || 0
-            };
+            let filamentoIdFinal = null;
+            const selectValue = selectCompraFilamento.value;
 
             try {
+                // Si eligió "Nuevo Filamento", primero lo creamos en el backend
+                if (selectValue === 'nuevo') {
+                    const filPayload = {
+                        tipo: document.getElementById('compra-nuevo-tipo').value,
+                        marca: document.getElementById('compra-nuevo-marca').value,
+                        color: document.getElementById('compra-nuevo-color').value,
+                        cantidadGramos: 0, // Se sumará automáticamente al registrar la compra
+                        precioCompra: parseFloat(document.getElementById('compra-monto').value) || 0
+                    };
+                    const resFil = await fetchAuth(`${API_BASE}/filamentos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(filPayload)
+                    });
+                    if (!resFil.ok) throw new Error("Error al crear el nuevo filamento.");
+                    const filGuardado = await resFil.json();
+                    filamentoIdFinal = filGuardado.id;
+                } else if (selectValue !== 'generico') {
+                    filamentoIdFinal = parseInt(selectValue);
+                }
+
+                const payload = {
+                    fechaCompra: document.getElementById('compra-fecha').value,
+                    filamentoId: filamentoIdFinal,
+                    descripcion: document.getElementById('compra-desc').value || 'Compra de Insumos',
+                    cantidadGramos: parseInt(document.getElementById('compra-cantidad').value) || 0,
+                    montoTotal: parseFloat(document.getElementById('compra-monto').value) || 0
+                };
+
                 const res = await fetchAuth(`${API_BASE}/compras-filamentos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                if (!res.ok) throw new Error(`Error ${res.status}`);
+                if (!res.ok) throw new Error(`Error al registrar compra: ${res.status}`);
                 
                 compraForm.reset();
                 document.getElementById('compra-fecha').value = new Date().toISOString().split('T')[0];
+                selectCompraFilamento.dispatchEvent(new Event('change')); // ocultar campos
+                
                 mostrarToast("Compra registrada correctamente.");
                 cargarCompras();
-                if (payload.filamentoId) cargarFilamentos(); // Recargar stock si se asoció a un filamento
+                if (payload.filamentoId) cargarFilamentos(); // Recargar stock si se asoció
             } catch (err) {
                 mostrarToast(err.message || "Error al registrar compra.", 'error');
             } finally {
