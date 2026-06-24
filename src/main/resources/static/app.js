@@ -688,8 +688,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
             const estadoProdLabel = p.estadoProduccion.replace(/_/g, ' ');
 
+            let listaProductos = '';
+            if (p.detalles && p.detalles.length > 0) {
+                listaProductos = '<ul style="margin: 5px 0 0 15px; padding: 0; font-size: 0.8rem; color: var(--text-muted);">';
+                p.detalles.forEach(d => {
+                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
+                });
+                listaProductos += '</ul>';
+            }
+
             row.innerHTML = `
-                <td><strong>${p.cliente}</strong></td>
+                <td><strong>${p.cliente}</strong>${listaProductos}</td>
                 <td>${p.fechaEntrega || '-'}</td>
                 <td>$${p.totalPedido}</td>
                 <td><span class="badge ${badgeClass}">${textoPago}</span></td>
@@ -824,13 +833,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const textoPago = p.estadoPago === 'SENADO' ? `Señado ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
 
+            let listaProductos = '';
+            if (p.detalles && p.detalles.length > 0) {
+                listaProductos = '<ul style="margin: 5px 0 0 15px; padding: 0; font-size: 0.85rem; color: var(--text-muted);">';
+                p.detalles.forEach(d => {
+                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
+                });
+                listaProductos += '</ul>';
+            }
+
             const card = document.createElement('div');
             card.className = 'historial-card';
             card.innerHTML = `
                 <div class="hc-cliente">${p.cliente}</div>
                 <div class="hc-info">
-                    <span>📅 Entregado: ${p.fechaEntrega || '-'}</span>
-                    <span>🧵 Material: ${p.materialColor || '-'}</span>
+                    <span>📦 Entregado: ${p.fechaEntrega || '-'}</span>
+                    <span>🎨 Material: ${p.materialColor || '-'}</span>
+                    ${listaProductos}
                 </div>
                 <div class="hc-footer">
                     <span class="hc-total">$${p.totalPedido}</span>
