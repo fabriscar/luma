@@ -68,23 +68,23 @@ public class ProductoService {
         // 3. Procesar la lista de archivos .STL si existen
         if (archivosStl != null && !archivosStl.isEmpty()) {
             boolean hasFiles = false;
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            java.io.File tempFile = java.io.File.createTempFile("stls_", ".zip");
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
+                 ZipOutputStream zos = new ZipOutputStream(fos)) {
                 for (MultipartFile stl : archivosStl) {
                     if (!stl.isEmpty()) {
                         hasFiles = true;
                         ZipEntry entry = new ZipEntry(stl.getOriginalFilename());
                         zos.putNextEntry(entry);
-                        zos.write(stl.getBytes());
+                        stl.getInputStream().transferTo(zos);
                         zos.closeEntry();
                     }
                 }
             }
-            if (hasFiles) {
-                byte[] zipBytes = baos.toByteArray();
-                String zipName = productoGuardado.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
 
-                Map uploadResult = cloudinary.uploader().upload(zipBytes, ObjectUtils.asMap(
+            if (hasFiles) {
+                String zipName = productoGuardado.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
+                Map uploadResult = cloudinary.uploader().upload(tempFile, ObjectUtils.asMap(
                         "resource_type", "raw",
                         "public_id", zipName
                 ));
@@ -92,6 +92,9 @@ public class ProductoService {
                 // Crear la entidad ProductoStl y asociarla al producto padre con la URL de Cloudinary
                 ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), productoGuardado);
                 productoStlRepository.save(nuevoStl);
+            }
+            if (tempFile.exists()) {
+                tempFile.delete();
             }
         }
 
@@ -122,23 +125,23 @@ public class ProductoService {
             producto.getStlFiles().clear();
 
             boolean hasFiles = false;
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            java.io.File tempFile = java.io.File.createTempFile("stls_", ".zip");
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
+                 ZipOutputStream zos = new ZipOutputStream(fos)) {
                 for (MultipartFile stl : archivosStl) {
                     if (!stl.isEmpty()) {
                         hasFiles = true;
                         ZipEntry entry = new ZipEntry(stl.getOriginalFilename());
                         zos.putNextEntry(entry);
-                        zos.write(stl.getBytes());
+                        stl.getInputStream().transferTo(zos);
                         zos.closeEntry();
                     }
                 }
             }
-            if (hasFiles) {
-                byte[] zipBytes = baos.toByteArray();
-                String zipName = producto.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
 
-                Map uploadResult = cloudinary.uploader().upload(zipBytes, ObjectUtils.asMap(
+            if (hasFiles) {
+                String zipName = producto.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
+                Map uploadResult = cloudinary.uploader().upload(tempFile, ObjectUtils.asMap(
                         "resource_type", "raw",
                         "public_id", zipName
                 ));
@@ -146,6 +149,9 @@ public class ProductoService {
                 ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), producto);
                 productoStlRepository.save(nuevoStl);
                 producto.getStlFiles().add(nuevoStl);
+            }
+            if (tempFile.exists()) {
+                tempFile.delete();
             }
         }
 
