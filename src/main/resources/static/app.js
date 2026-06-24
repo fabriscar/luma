@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CONEXIÓN HTTP 3: PEDIDOS Y KANBAN ---
     // =======================================================
     async function cargarPedidos() {
-        mostrarSpinner(tablaVentasBody, 6);
+        mostrarSpinner(tablaVentasBody, 7);
         try {
             const res = await fetchAuth(`${API_BASE}/pedidos`);
             if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
@@ -602,9 +602,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let listaProductos = '';
             if (pedido.nombreProducto) {
-                listaProductos = '<ul style="margin: 5px 0 10px 15px; padding: 0; font-size: 0.85rem; color: var(--text-color);">';
-                listaProductos += `<li>${pedido.cantidad || 1}x ${pedido.nombreProducto} (${pedido.materialColor || '-'})</li>`;
-                listaProductos += '</ul>';
+                listaProductos = `<div class="kanban-producto"><span class="kanban-prod-qty">${pedido.cantidad || 1}x</span> ${pedido.nombreProducto}<span class="kanban-prod-mat">${pedido.materialColor || ''}</span></div>`;
+            } else {
+                listaProductos = `<div class="kanban-producto kanban-prod-vacio">Sin producto asignado</div>`;
             }
 
             card.innerHTML = `
@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = pedidos.length === 0
                 ? 'No hay pedidos registrados.'
                 : 'Ningún pedido coincide con los filtros aplicados.';
-            tablaVentasBody.innerHTML = `<tr><td colspan="6" class="sin-resultados">${msg}</td></tr>`;
+            tablaVentasBody.innerHTML = `<tr><td colspan="7" class="sin-resultados">${msg}</td></tr>`;
             return;
         }
 
@@ -686,15 +686,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
             const estadoProdLabel = p.estadoProduccion.replace(/_/g, ' ');
 
-            let listaProductos = '';
-            if (p.nombreProducto) {
-                listaProductos = '<ul style="margin: 5px 0 0 15px; padding: 0; font-size: 0.8rem; color: var(--text-muted);">';
-                listaProductos += `<li>${p.cantidad || 1}x ${p.nombreProducto} (${p.materialColor || '-'})</li>`;
-                listaProductos += '</ul>';
-            }
+            const productoTexto = p.nombreProducto
+                ? `<strong>${p.cantidad || 1}x</strong> ${p.nombreProducto}<br><small style="color:var(--text-muted)">${p.materialColor || '-'}</small>`
+                : `<span style="color:var(--text-muted);font-style:italic">—</span>`;
 
             row.innerHTML = `
-                <td><strong>${p.cliente}</strong>${listaProductos}</td>
+                <td><strong>${p.cliente}</strong></td>
+                <td>${productoTexto}</td>
                 <td>${p.fechaEntrega || '-'}</td>
                 <td>$${p.totalPedido}</td>
                 <td><span class="badge ${badgeClass}">${textoPago}</span></td>
