@@ -601,11 +601,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let listaProductos = '';
-            if (pedido.detalles && pedido.detalles.length > 0) {
+            if (pedido.nombreProducto) {
                 listaProductos = '<ul style="margin: 5px 0 10px 15px; padding: 0; font-size: 0.85rem; color: var(--text-color);">';
-                pedido.detalles.forEach(d => {
-                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
-                });
+                listaProductos += `<li>${pedido.cantidad || 1}x ${pedido.nombreProducto} (${pedido.materialColor || '-'})</li>`;
                 listaProductos += '</ul>';
             }
 
@@ -689,11 +687,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const estadoProdLabel = p.estadoProduccion.replace(/_/g, ' ');
 
             let listaProductos = '';
-            if (p.detalles && p.detalles.length > 0) {
+            if (p.nombreProducto) {
                 listaProductos = '<ul style="margin: 5px 0 0 15px; padding: 0; font-size: 0.8rem; color: var(--text-muted);">';
-                p.detalles.forEach(d => {
-                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
-                });
+                listaProductos += `<li>${p.cantidad || 1}x ${p.nombreProducto} (${p.materialColor || '-'})</li>`;
                 listaProductos += '</ul>';
             }
 
@@ -834,11 +830,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
 
             let listaProductos = '';
-            if (p.detalles && p.detalles.length > 0) {
+            if (p.nombreProducto) {
                 listaProductos = '<ul style="margin: 5px 0 0 15px; padding: 0; font-size: 0.85rem; color: var(--text-muted);">';
-                p.detalles.forEach(d => {
-                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
-                });
+                listaProductos += `<li>${p.cantidad || 1}x ${p.nombreProducto}</li>`;
                 listaProductos += '</ul>';
             }
 
@@ -952,7 +946,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalPedido: parseFloat(totalCalculado),
                 estadoPago: selectEstadoPago.value,
                 montoSena: selectEstadoPago.value === 'SENADO' ? parseFloat(inputMontoSena.value) || 0 : 0,
-                estadoProduccion: 'PENDIENTE_HACER'
+                estadoProduccion: 'PENDIENTE_HACER',
+                nombreProducto: prodRef ? prodRef.nombre : null,
+                cantidad: cantidad,
+                materialColor: selectMaterial.options[selectMaterial.selectedIndex]?.text || ''
             };
 
             try {

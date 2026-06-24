@@ -42,6 +42,9 @@ public class PedidoController {
         pedido.setTotalPedido(pedidoActualizado.getTotalPedido());
         pedido.setEstadoPago(pedidoActualizado.getEstadoPago());
         pedido.setMontoSena(pedidoActualizado.getMontoSena());
+        pedido.setNombreProducto(pedidoActualizado.getNombreProducto());
+        pedido.setCantidad(pedidoActualizado.getCantidad());
+        pedido.setMaterialColor(pedidoActualizado.getMaterialColor());
         return ResponseEntity.ok(pedidoService.guardar(pedido));
     }
 

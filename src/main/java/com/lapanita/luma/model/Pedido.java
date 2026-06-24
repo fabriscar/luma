@@ -36,6 +36,15 @@ public class Pedido {
     @Column(name = "estado_produccion", nullable = false)
     private EstadoProduccion estadoProduccion = EstadoProduccion.PENDIENTE_HACER;
 
+    @Column(name = "nombre_producto", length = 150)
+    private String nombreProducto;
+
+    @Column(name = "cantidad")
+    private Integer cantidad;
+
+    @Column(name = "material_color", length = 150)
+    private String materialColor;
+
     public Pedido() {}
 
     public Pedido(String cliente, java.time.LocalDate fechaEntrega, BigDecimal totalPedido, EstadoPago estadoPago, BigDecimal montoSena) {
@@ -70,4 +79,13 @@ public class Pedido {
 
     public EstadoProduccion getEstadoProduccion() { return estadoProduccion; }
     public void setEstadoProduccion(EstadoProduccion estadoProduccion) { this.estadoProduccion = estadoProduccion; }
+
+    public String getNombreProducto() { return nombreProducto; }
+    public void setNombreProducto(String nombreProducto) { this.nombreProducto = nombreProducto; }
+
+    public Integer getCantidad() { return cantidad; }
+    public void setCantidad(Integer cantidad) { this.cantidad = cantidad; }
+
+    public String getMaterialColor() { return materialColor; }
+    public void setMaterialColor(String materialColor) { this.materialColor = materialColor; }
 }
