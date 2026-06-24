@@ -15,9 +15,12 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class ProductoService {
@@ -66,10 +69,24 @@ public class ProductoService {
         if (archivosStl != null && !archivosStl.isEmpty()) {
             for (MultipartFile stl : archivosStl) {
                 if (!stl.isEmpty()) {
-                    Map uploadResult = cloudinary.uploader().upload(stl.getBytes(), ObjectUtils.asMap("resource_type", "raw"));
+                    // Comprimir STL a ZIP
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+                        ZipEntry entry = new ZipEntry(stl.getOriginalFilename());
+                        zos.putNextEntry(entry);
+                        zos.write(stl.getBytes());
+                        zos.closeEntry();
+                    }
+                    byte[] zipBytes = baos.toByteArray();
+                    String zipName = stl.getOriginalFilename() + ".zip";
+
+                    Map uploadResult = cloudinary.uploader().upload(zipBytes, ObjectUtils.asMap(
+                            "resource_type", "raw",
+                            "public_id", zipName
+                    ));
                     
                     // Crear la entidad ProductoStl y asociarla al producto padre con la URL de Cloudinary
-                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), uploadResult.get("secure_url").toString(), productoGuardado);
+                    ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), productoGuardado);
                     productoStlRepository.save(nuevoStl);
                 }
             }
@@ -102,9 +119,23 @@ public class ProductoService {
 
             for (MultipartFile stl : archivosStl) {
                 if (!stl.isEmpty()) {
-                    Map uploadResult = cloudinary.uploader().upload(stl.getBytes(), ObjectUtils.asMap("resource_type", "raw"));
+                    // Comprimir STL a ZIP
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+                        ZipEntry entry = new ZipEntry(stl.getOriginalFilename());
+                        zos.putNextEntry(entry);
+                        zos.write(stl.getBytes());
+                        zos.closeEntry();
+                    }
+                    byte[] zipBytes = baos.toByteArray();
+                    String zipName = stl.getOriginalFilename() + ".zip";
 
-                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), uploadResult.get("secure_url").toString(), producto);
+                    Map uploadResult = cloudinary.uploader().upload(zipBytes, ObjectUtils.asMap(
+                            "resource_type", "raw",
+                            "public_id", zipName
+                    ));
+
+                    ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), producto);
                     productoStlRepository.save(nuevoStl);
                     producto.getStlFiles().add(nuevoStl);
                 }
