@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll() // Permitir ver fotos
                 
                 // Permitir archivos estáticos del frontend
-                .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico").permitAll()
+                .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico", "/logo.png").permitAll()
                 
                 // Todo lo demás requiere autenticación
                 .anyRequest().authenticated()
