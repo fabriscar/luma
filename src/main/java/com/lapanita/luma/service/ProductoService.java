@@ -11,14 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class ProductoService {
@@ -29,8 +28,12 @@ public class ProductoService {
     @Autowired
     private ProductoStlRepository productoStlRepository;
 
-    // Directorio raíz donde se guardan los archivos en el servidor
-    private final Path rootFolder = Paths.get("uploads");
+    @Value("${cloudinary.url}")
+    private String cloudinaryUrl;
+
+    private Cloudinary getCloudinary() {
+        return new Cloudinary(cloudinaryUrl);
+    }
 
     /** Traer todos los productos cargados */
     @Transactional(readOnly = true)
@@ -45,56 +48,28 @@ public class ProductoService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con el ID: " + id));
     }
 
-    /**
-     * Cargar la foto de un producto como recurso descargable.
-     * Permite al frontend mostrar la imagen a través de un endpoint HTTP.
-     */
-    public Resource cargarFotoComoRecurso(Integer id) {
-        Producto producto = obtenerPorId(id);
-        if (producto.getRutaFoto() == null) {
-            throw new RuntimeException("El producto no tiene foto asociada.");
-        }
-        try {
-            Path ruta = Paths.get(producto.getRutaFoto());
-            Resource recurso = new UrlResource(ruta.toUri());
-            if (recurso.exists() && recurso.isReadable()) {
-                return recurso;
-            }
-            throw new RuntimeException("No se puede leer la foto del producto.");
-        } catch (MalformedURLException e) {
-            throw new RuntimeException("Error al construir la URL de la foto: " + e.getMessage());
-        }
-    }
-
-    /** Guardar o actualizar un producto con sus archivos físicos */
+    /** Guardar o actualizar un producto con sus archivos en Cloudinary */
     @Transactional
     public Producto guardar(Producto producto, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
-        // 1. Crear la carpeta uploads si no existe
-        if (!Files.exists(rootFolder)) {
-            Files.createDirectories(rootFolder);
-        }
+        Cloudinary cloudinary = getCloudinary();
 
-        // 2. Procesar la foto si el usuario subió una
+        // 1. Procesar la foto si el usuario subió una
         if (foto != null && !foto.isEmpty()) {
-            String nombreFoto = UUID.randomUUID().toString() + "_" + foto.getOriginalFilename();
-            Path rutaFoto = this.rootFolder.resolve(nombreFoto);
-            Files.copy(foto.getInputStream(), rutaFoto, StandardCopyOption.REPLACE_EXISTING);
-            producto.setRutaFoto(rutaFoto.toString());
+            Map uploadResult = cloudinary.uploader().upload(foto.getBytes(), ObjectUtils.emptyMap());
+            producto.setRutaFoto(uploadResult.get("secure_url").toString());
         }
 
-        // 3. Guardar el producto principal en la BD para generar su ID
+        // 2. Guardar el producto principal en la BD para generar su ID
         Producto productoGuardado = productoRepository.save(producto);
 
-        // 4. Procesar la lista de archivos .STL si existen
+        // 3. Procesar la lista de archivos .STL si existen
         if (archivosStl != null && !archivosStl.isEmpty()) {
             for (MultipartFile stl : archivosStl) {
                 if (!stl.isEmpty()) {
-                    String nombreStl = UUID.randomUUID().toString() + "_" + stl.getOriginalFilename();
-                    Path rutaStl = this.rootFolder.resolve(nombreStl);
-                    Files.copy(stl.getInputStream(), rutaStl, StandardCopyOption.REPLACE_EXISTING);
-
-                    // Crear la entidad ProductoStl y asociarla al producto padre
-                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), rutaStl.toString(), productoGuardado);
+                    Map uploadResult = cloudinary.uploader().upload(stl.getBytes(), ObjectUtils.asMap("resource_type", "raw"));
+                    
+                    // Crear la entidad ProductoStl y asociarla al producto padre con la URL de Cloudinary
+                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), uploadResult.get("secure_url").toString(), productoGuardado);
                     productoStlRepository.save(nuevoStl);
                 }
             }
@@ -103,7 +78,7 @@ public class ProductoService {
         return productoGuardado;
     }
 
-    /** Actualizar un producto existente */
+    /** Actualizar un producto existente en Cloudinary */
     @Transactional
     public Producto actualizar(Integer id, String nombre, Integer pesoGramos, java.math.BigDecimal precioBase, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
         Producto producto = obtenerPorId(id);
@@ -111,43 +86,25 @@ public class ProductoService {
         producto.setPesoGramos(pesoGramos);
         producto.setPrecioBase(precioBase);
 
-        // Si se sube una nueva foto, se reemplaza la anterior
+        Cloudinary cloudinary = getCloudinary();
+
+        // Si se sube una nueva foto, se reemplaza la anterior (sin borrar en Cloudinary por simplicidad)
         if (foto != null && !foto.isEmpty()) {
-            // Borrar foto vieja si existe
-            if (producto.getRutaFoto() != null) {
-                try {
-                    Files.deleteIfExists(Paths.get(producto.getRutaFoto()));
-                } catch (IOException e) {
-                    System.err.println("No se pudo eliminar foto antigua: " + e.getMessage());
-                }
-            }
-            String nombreFoto = UUID.randomUUID().toString() + "_" + foto.getOriginalFilename();
-            Path rutaFoto = this.rootFolder.resolve(nombreFoto);
-            Files.copy(foto.getInputStream(), rutaFoto, StandardCopyOption.REPLACE_EXISTING);
-            producto.setRutaFoto(rutaFoto.toString());
+            Map uploadResult = cloudinary.uploader().upload(foto.getBytes(), ObjectUtils.emptyMap());
+            producto.setRutaFoto(uploadResult.get("secure_url").toString());
         }
 
         // Si se suben nuevos archivos STL, se reemplazan los anteriores
         if (archivosStl != null && !archivosStl.isEmpty()) {
-            // Borrar STLs viejos
-            for (ProductoStl stl : producto.getStlFiles()) {
-                try {
-                    Files.deleteIfExists(Paths.get(stl.getRutaArchivo()));
-                } catch (IOException e) {
-                    System.err.println("No se pudo eliminar STL antiguo: " + e.getMessage());
-                }
-            }
             // Borrar de BD
             productoStlRepository.deleteAll(producto.getStlFiles());
             producto.getStlFiles().clear();
 
             for (MultipartFile stl : archivosStl) {
                 if (!stl.isEmpty()) {
-                    String nombreStl = UUID.randomUUID().toString() + "_" + stl.getOriginalFilename();
-                    Path rutaStl = this.rootFolder.resolve(nombreStl);
-                    Files.copy(stl.getInputStream(), rutaStl, StandardCopyOption.REPLACE_EXISTING);
+                    Map uploadResult = cloudinary.uploader().upload(stl.getBytes(), ObjectUtils.asMap("resource_type", "raw"));
 
-                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), rutaStl.toString(), producto);
+                    ProductoStl nuevoStl = new ProductoStl(stl.getOriginalFilename(), uploadResult.get("secure_url").toString(), producto);
                     productoStlRepository.save(nuevoStl);
                     producto.getStlFiles().add(nuevoStl);
                 }
@@ -157,29 +114,9 @@ public class ProductoService {
         return productoRepository.save(producto);
     }
 
-    /** Eliminar un producto y limpiar sus archivos del disco */
+    /** Eliminar un producto (no borramos de Cloudinary para mantenerlo simple) */
     @Transactional
     public void eliminar(Integer id) {
-        Producto producto = obtenerPorId(id);
-
-        // Borrar el archivo de la foto del disco antes de eliminar el registro
-        if (producto.getRutaFoto() != null) {
-            try {
-                Files.deleteIfExists(Paths.get(producto.getRutaFoto()));
-            } catch (IOException e) {
-                System.err.println("No se pudo eliminar el archivo físico de la foto: " + e.getMessage());
-            }
-        }
-
-        // Borrar todos los archivos .STL asociados del disco
-        for (ProductoStl stl : producto.getStlFiles()) {
-            try {
-                Files.deleteIfExists(Paths.get(stl.getRutaArchivo()));
-            } catch (IOException e) {
-                System.err.println("No se pudo eliminar el archivo físico STL: " + e.getMessage());
-            }
-        }
-
         // Eliminar el registro definitivo de la BD (por cascada borra la tabla productos_stl)
         productoRepository.deleteById(id);
     }

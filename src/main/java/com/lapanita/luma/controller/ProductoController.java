@@ -33,23 +33,18 @@ public class ProductoController {
     }
 
     /**
-     * Endpoint para servir la foto de un producto.
-     * El frontend puede usar <img src="/api/productos/{id}/foto"> directamente.
+     * Endpoint para servir la foto de un producto redirigiendo a Cloudinary.
+     * El frontend puede seguir usando <img src="/api/productos/{id}/foto">.
      */
     @GetMapping("/{id}/foto")
-    public ResponseEntity<Resource> servirFoto(@PathVariable Integer id) {
-        Resource foto = productoService.cargarFotoComoRecurso(id);
-        // Detectar el Content-Type según la extensión del archivo
-        String contentType = "image/jpeg";
-        String filename = foto.getFilename();
-        if (filename != null) {
-            if (filename.toLowerCase().endsWith(".png")) contentType = "image/png";
-            else if (filename.toLowerCase().endsWith(".gif")) contentType = "image/gif";
-            else if (filename.toLowerCase().endsWith(".webp")) contentType = "image/webp";
+    public ResponseEntity<Void> servirFoto(@PathVariable Integer id) {
+        Producto producto = productoService.obtenerPorId(id);
+        if (producto.getRutaFoto() == null) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(foto);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(java.net.URI.create(producto.getRutaFoto()))
+                .build();
     }
 
     @PostMapping(consumes = {"multipart/form-data"})

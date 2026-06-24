@@ -17,15 +17,17 @@ public class ProductoStlController {
     @Autowired
     private ProductoStlService productoStlService;
 
-    // Endpoint para descargar el archivo .stl binario real por su ID
+    // Endpoint para descargar el archivo .stl binario real redirigiendo a Cloudinary
     @GetMapping("/descargar/{id}")
-    public ResponseEntity<Resource> descargarStl(@PathVariable Integer id) {
+    public ResponseEntity<Void> descargarStl(@PathVariable Integer id) {
         ProductoStl metadata = productoStlService.obtenerPorId(id);
-        Resource archivoFisico = productoStlService.cargarComoRecurso(id);
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM) // Indica que viaja un archivo binario puro
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + metadata.getNombreArchivo() + "\"")
-                .body(archivoFisico);
+        if (metadata.getRutaArchivo() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return ResponseEntity.status(org.springframework.http.HttpStatus.FOUND)
+                .location(java.net.URI.create(metadata.getRutaArchivo()))
+                .build();
     }
 }
