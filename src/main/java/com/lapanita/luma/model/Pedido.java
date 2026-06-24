@@ -3,6 +3,9 @@ package com.lapanita.luma.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "pedidos")
@@ -47,6 +50,10 @@ public class Pedido {
 
     @Column(name = "detalles", length = 500)
     private String detalles;
+
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<PedidoFilamento> filamentos = new ArrayList<>();
 
     public Pedido() {}
 
@@ -94,4 +101,7 @@ public class Pedido {
 
     public String getDetalles() { return detalles; }
     public void setDetalles(String detalles) { this.detalles = detalles; }
+
+    public List<PedidoFilamento> getFilamentos() { return filamentos; }
+    public void setFilamentos(List<PedidoFilamento> filamentos) { this.filamentos = filamentos; }
 }

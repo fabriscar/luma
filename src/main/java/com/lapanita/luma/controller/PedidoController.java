@@ -36,17 +36,7 @@ public class PedidoController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Pedido> actualizar(@PathVariable Integer id, @RequestBody Pedido pedidoActualizado) {
-        Pedido pedido = pedidoService.obtenerPorId(id);
-        pedido.setCliente(pedidoActualizado.getCliente());
-        pedido.setFechaEntrega(pedidoActualizado.getFechaEntrega());
-        pedido.setTotalPedido(pedidoActualizado.getTotalPedido());
-        pedido.setEstadoPago(pedidoActualizado.getEstadoPago());
-        pedido.setMontoSena(pedidoActualizado.getMontoSena());
-        pedido.setNombreProducto(pedidoActualizado.getNombreProducto());
-        pedido.setCantidad(pedidoActualizado.getCantidad());
-        pedido.setMaterialColor(pedidoActualizado.getMaterialColor());
-        pedido.setDetalles(pedidoActualizado.getDetalles());
-        return ResponseEntity.ok(pedidoService.guardar(pedido));
+        return ResponseEntity.ok(pedidoService.actualizar(id, pedidoActualizado));
     }
 
     // Endpoint específico para mover las tarjetas en el tablero Kanban
