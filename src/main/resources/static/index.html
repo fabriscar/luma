@@ -96,9 +96,11 @@
                         <label for="venta-producto">Producto</label>
                         <select id="venta-producto" required></select>
                     </div>
-                    <div class="form-group">
-                        <label for="venta-material">Color / Material</label>
-                        <select id="venta-material" required></select>
+                    <div class="form-group" style="flex-basis: 100%; border: 1px solid var(--border); padding: 10px; border-radius: 6px; background-color: var(--bg-card);">
+                        <label>Filamentos a utilizar</label>
+                        <div id="venta-filamentos-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+                        </div>
+                        <button type="button" id="btn-add-filamento" class="btn-secondary btn-inline" style="font-size: 0.8rem; padding: 4px 8px;">+ Añadir Filamento y Gramos</button>
                     </div>
                     <div class="form-group" style="min-width: 150px; flex: 1;">
                         <label for="venta-detalles">Detalles (Opcional)</label>

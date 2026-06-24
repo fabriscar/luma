@@ -35,10 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tablaFilamentosBody = document.getElementById('tabla-filamentos-body');
     const ventaForm = document.getElementById('venta-form');
     const selectProducto = document.getElementById('venta-producto');
-    const selectMaterial = document.getElementById('venta-material');
     const selectEstadoPago = document.getElementById('venta-estado-pago');
     const groupMontoSena = document.getElementById('group-monto-sena');
     const inputMontoSena = document.getElementById('venta-monto-sena');
+    const filamentosContainer = document.getElementById('venta-filamentos-container');
+    const btnAddFilamento = document.getElementById('btn-add-filamento');
     const tablaVentasBody = document.getElementById('tabla-ventas-body');
     const cardsPendiente = document.getElementById('cards-pendiente');
     const cardsProgreso = document.getElementById('cards-progreso');
@@ -192,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LLENAR DESPLEGABLES DE VENTA ---
     // =======================================================
     function actualizarSelectoresVenta() {
-        if (!selectProducto || !selectMaterial) return;
+        if (!selectProducto) return;
 
         selectProducto.innerHTML = '<option value="">-- Seleccioná --</option>';
         productosCargados.forEach(p => {
@@ -202,13 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
             selectProducto.appendChild(opt);
         });
 
-        selectMaterial.innerHTML = '<option value="">-- Seleccioná --</option>';
-        filamentosCargados.forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = `${f.tipo} - ${f.color}`;
-            opt.textContent = `${f.tipo} (${f.color}) - ${f.marca}`;
-            selectMaterial.appendChild(opt);
-        });
+        if (filamentosContainer && filamentosContainer.children.length === 0) {
+            agregarFilaFilamentoVenta();
+        }
 
         if (selectCompraFilamento) {
             const optgroup = document.getElementById('compra-optgroup-existentes');
@@ -222,6 +219,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+    }
+
+    function agregarFilaFilamentoVenta(filId = "", gramos = "") {
+        if (!filamentosContainer) return;
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '5px';
+        
+        const sel = document.createElement('select');
+        sel.className = 'venta-fil-select';
+        sel.required = true;
+        sel.style.flex = '1';
+        sel.innerHTML = '<option value="">-- Elegir Filamento --</option>';
+        filamentosCargados.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = `${f.tipo} ${f.marca} (${f.color}) - Stock: ${f.cantidadGramos}g`;
+            if (f.id == filId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        const inputGramos = document.createElement('input');
+        inputGramos.type = 'number';
+        inputGramos.className = 'venta-fil-gramos';
+        inputGramos.required = true;
+        inputGramos.placeholder = 'Gramos';
+        inputGramos.style.width = '80px';
+        inputGramos.min = '1';
+        inputGramos.value = gramos;
+
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'btn-danger btn-inline';
+        btnDel.style.padding = '0.3rem 0.6rem';
+        btnDel.textContent = '✖';
+        btnDel.onclick = () => {
+            if (filamentosContainer.children.length > 1) {
+                row.remove();
+            } else {
+                mostrarToast('El pedido debe tener al menos un filamento', 'warning');
+            }
+        };
+
+        row.appendChild(sel);
+        row.appendChild(inputGramos);
+        row.appendChild(btnDel);
+        filamentosContainer.appendChild(row);
+    }
+
+    if (btnAddFilamento) {
+        btnAddFilamento.addEventListener('click', () => agregarFilaFilamentoVenta());
     }
 
     // =======================================================
@@ -915,12 +963,19 @@ document.addEventListener('DOMContentLoaded', () => {
         editPedidoId = pedido.id;
         document.getElementById('venta-cliente').value = pedido.cliente;
         document.getElementById('venta-entrega').value = pedido.fechaEntrega;
-        document.getElementById('venta-producto').value = ""; // No podemos setear el producto original facilmente, o sí si es parte de materialColor
+        document.getElementById('venta-producto').value = ""; // No podemos setear el producto original facilmente
         if (document.getElementById('venta-detalles')) document.getElementById('venta-detalles').value = pedido.detalles || '';
         
-        // Tratar de hacer match con el materialColor en los selects
-        // Como el backend solo guarda un string, no podemos re-seleccionar el dropdown exacto,
-        // pero podemos setear el estado de pago.
+        // Llenar filamentos dinámicos
+        filamentosContainer.innerHTML = '';
+        if (pedido.filamentos && pedido.filamentos.length > 0) {
+            pedido.filamentos.forEach(pf => {
+                if (pf.filamento) agregarFilaFilamentoVenta(pf.filamento.id, pf.gramosUsados);
+            });
+        } else {
+            agregarFilaFilamentoVenta();
+        }
+
         selectEstadoPago.value = pedido.estadoPago;
         if (pedido.estadoPago === 'SENADO') {
             groupMontoSena.classList.remove('hidden');
@@ -952,6 +1007,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function cancelarEdicionPedido() {
         editPedidoId = null;
         ventaForm.reset();
+        filamentosContainer.innerHTML = '';
+        agregarFilaFilamentoVenta();
         groupMontoSena.classList.add('hidden');
         document.getElementById('btn-submit-venta').textContent = 'Crear Pedido';
         const btnCancel = document.getElementById('btn-cancel-venta');
@@ -1124,6 +1181,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const cantidad = parseInt(document.getElementById('venta-cantidad').value) || 1;
             const totalCalculado = prodRef ? (parseFloat(prodRef.precioBase) * cantidad).toFixed(2) : 0;
 
+            const filamentosPayload = [];
+            const nombresMateriales = [];
+            document.querySelectorAll('.venta-fil-select').forEach((sel, i) => {
+                const gramosInput = document.querySelectorAll('.venta-fil-gramos')[i];
+                const filId = parseInt(sel.value);
+                const gramos = parseInt(gramosInput.value) || 0;
+                if (filId && gramos > 0) {
+                    filamentosPayload.push({
+                        filamento: { id: filId },
+                        gramosUsados: gramos
+                    });
+                    const optText = sel.options[sel.selectedIndex].text.split(' - ')[0]; // Tomar el nombre base
+                    nombresMateriales.push(optText);
+                }
+            });
+
             const payload = {
                 cliente: document.getElementById('venta-cliente').value,
                 fechaEntrega: document.getElementById('venta-entrega').value,
@@ -1133,7 +1206,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 estadoProduccion: 'PENDIENTE_HACER',
                 nombreProducto: prodRef ? prodRef.nombre : null,
                 cantidad: cantidad,
-                materialColor: selectMaterial.options[selectMaterial.selectedIndex]?.text || '',
+                materialColor: nombresMateriales.join(' + '),
+                filamentos: filamentosPayload,
                 detalles: document.getElementById('venta-detalles') ? document.getElementById('venta-detalles').value : ''
             };
 
