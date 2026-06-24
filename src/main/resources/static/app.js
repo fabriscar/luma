@@ -589,11 +589,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let botonAccion = '';
             if (pedido.estadoProduccion === 'PENDIENTE_HACER')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="EN_PRODUCCION">Imprimir ▶</button>`;
+                botonAccion += `<button class="btn-action" data-id="${pedido.id}" data-next="EN_PRODUCCION">Imprimir ▶</button>`;
             else if (pedido.estadoProduccion === 'EN_PRODUCCION')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="PENDIENTE_ENTREGA">Terminar ✔</button>`;
+                botonAccion += `<button class="btn-action" data-id="${pedido.id}" data-next="PENDIENTE_ENTREGA">Terminar ✔</button>`;
             else if (pedido.estadoProduccion === 'PENDIENTE_ENTREGA')
-                botonAccion = `<button class="btn-action" data-id="${pedido.id}" data-next="ENTREGADO">Entregar 📦</button>`;
+                botonAccion += `<button class="btn-action" data-id="${pedido.id}" data-next="ENTREGADO">Entregar 📦</button>`;
+
+            let botonPagar = '';
+            if (pedido.estadoPago !== 'PAGADO') {
+                botonPagar = `<button class="btn-action btn-pagar" data-id="${pedido.id}" data-pago="PAGADO" style="background-color: var(--success-color); margin-left: 5px;">Pagar 💰</button>`;
+            }
+
+            let listaProductos = '';
+            if (pedido.detalles && pedido.detalles.length > 0) {
+                listaProductos = '<ul style="margin: 5px 0 10px 15px; padding: 0; font-size: 0.85rem; color: var(--text-color);">';
+                pedido.detalles.forEach(d => {
+                    listaProductos += `<li>${d.cantidad}x ${d.producto.nombre}</li>`;
+                });
+                listaProductos += '</ul>';
+            }
 
             card.innerHTML = `
                 <div class="card-header">
@@ -602,10 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="card-body">
                     <p><strong>Entrega:</strong> ${pedido.fechaEntrega}</p>
+                    ${listaProductos}
                 </div>
                 <div class="card-footer">
                     <span class="card-price">$${pedido.totalPedido}</span>
-                    <div class="card-actions">${botonAccion}</div>
+                    <div class="card-actions">
+                        ${botonAccion}
+                        ${botonPagar}
+                    </div>
                 </div>
             `;
 
@@ -619,18 +637,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const kanbanBoard = document.querySelector('.kanban-board');
     if (kanbanBoard) {
         kanbanBoard.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-action');
-            if (!btn) return;
-            const id = btn.getAttribute('data-id');
-            const nextState = btn.getAttribute('data-next');
-            try {
-                const res = await fetchAuth(`${API_BASE}/pedidos/${id}/estado?nuevoEstado=${nextState}`, { method: 'PATCH' });
-                if (!res.ok) throw new Error();
-                const textos = { EN_PRODUCCION: 'pasado a Producción', PENDIENTE_ENTREGA: 'listo para entregar', ENTREGADO: 'marcado como Entregado' };
-                mostrarToast(`Pedido ${textos[nextState] || 'actualizado'}.`);
-                cargarPedidos();
-            } catch {
-                mostrarToast("Error al actualizar el estado del pedido.", 'error');
+            const btnProd = e.target.closest('.btn-action:not(.btn-pagar)');
+            const btnPagar = e.target.closest('.btn-pagar');
+            
+            if (btnProd) {
+                const id = btnProd.getAttribute('data-id');
+                const nextState = btnProd.getAttribute('data-next');
+                try {
+                    const res = await fetchAuth(`${API_BASE}/pedidos/${id}/estado?nuevoEstado=${nextState}`, { method: 'PATCH' });
+                    if (!res.ok) throw new Error();
+                    const textos = { EN_PRODUCCION: 'pasado a Producción', PENDIENTE_ENTREGA: 'listo para entregar', ENTREGADO: 'marcado como Entregado' };
+                    mostrarToast(`Pedido ${textos[nextState] || 'actualizado'}.`);
+                    cargarPedidos();
+                } catch {
+                    mostrarToast("Error al actualizar el estado de producción.", 'error');
+                }
+            } else if (btnPagar) {
+                const id = btnPagar.getAttribute('data-id');
+                const estadoPago = btnPagar.getAttribute('data-pago');
+                try {
+                    const res = await fetchAuth(`${API_BASE}/pedidos/${id}/pago?nuevoEstado=${estadoPago}`, { method: 'PATCH' });
+                    if (!res.ok) throw new Error();
+                    mostrarToast(`Pedido marcado como Pagado.`);
+                    cargarPedidos();
+                } catch {
+                    mostrarToast("Error al actualizar el estado de pago.", 'error');
+                }
             }
         });
     }
