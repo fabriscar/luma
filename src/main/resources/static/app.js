@@ -682,10 +682,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const f = filamentosCargados.find(fil => fil.id === c.filamentoId);
                 if (f) descStr = `<strong>${f.tipo} ${f.marca} (${f.color})</strong><br><small>${c.descripcion}</small>`;
             }
+            const gramosStr = c.cantidadGramos > 0 ? `${c.cantidadGramos} g` : '-';
             row.innerHTML = `
                 <td>${c.fechaCompra}</td>
                 <td>${descStr}</td>
-                <td>${c.cantidadGramos} g</td>
+                <td>${gramosStr}</td>
                 <td><strong>$${c.montoTotal}</strong></td>
                 <td class="td-actions">
                     <button class="btn-danger btn-del-compra" data-id="${c.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
@@ -720,6 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selectCompraFilamento) {
         selectCompraFilamento.addEventListener('change', () => {
             const isNuevo = selectCompraFilamento.value === 'nuevo';
+            const isGenerico = selectCompraFilamento.value === 'generico';
+            
             document.querySelectorAll('.compra-nuevo-fields').forEach(el => {
                 if (isNuevo) el.classList.remove('hidden');
                 else el.classList.add('hidden');
@@ -728,6 +731,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const input = el.querySelector('input');
                 if (input) input.required = isNuevo;
             });
+
+            const groupCantidad = document.getElementById('group-compra-cantidad');
+            const inputCantidad = document.getElementById('compra-cantidad');
+            if (groupCantidad && inputCantidad) {
+                if (isGenerico) {
+                    groupCantidad.classList.add('hidden');
+                    inputCantidad.required = false;
+                    inputCantidad.value = 0;
+                } else {
+                    groupCantidad.classList.remove('hidden');
+                    inputCantidad.required = true;
+                    if (inputCantidad.value == 0) inputCantidad.value = 1000;
+                }
+            }
         });
     }
 
