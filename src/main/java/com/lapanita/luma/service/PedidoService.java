@@ -97,6 +97,12 @@ public class PedidoService {
     public Pedido actualizarEstadoProduccion(Integer id, EstadoProduccion nuevoEstado) {
         Pedido pedido = obtenerPorId(id);
         pedido.setEstadoProduccion(nuevoEstado);
+        
+        // Si el pedido se marca como entregado, lo pasamos a pagado automáticamente
+        if (nuevoEstado == EstadoProduccion.ENTREGADO) {
+            pedido.setEstadoPago(com.lapanita.luma.model.EstadoPago.PAGADO);
+        }
+        
         return pedidoRepository.save(pedido);
     }
 
