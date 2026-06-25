@@ -96,6 +96,14 @@
                         <label for="venta-producto">Producto</label>
                         <select id="venta-producto" required></select>
                     </div>
+                    <div class="form-group hidden" id="group-venta-producto-custom" style="min-width: 150px; flex: 1;">
+                        <label for="venta-producto-custom">Nombre Producto Custom</label>
+                        <input type="text" id="venta-producto-custom" placeholder="Ej: Llavero personalizado">
+                    </div>
+                    <div class="form-group hidden" id="group-venta-precio-custom" style="min-width: 120px; flex: 0.5;">
+                        <label for="venta-precio-custom">Precio Unit. ($)</label>
+                        <input type="number" step="0.01" id="venta-precio-custom" placeholder="0.00">
+                    </div>
                     <div class="form-group" style="flex-basis: 100%; border: 1px solid var(--border); padding: 10px; border-radius: 6px; background-color: var(--bg-card);">
                         <label>Filamentos a utilizar</label>
                         <div id="venta-filamentos-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">

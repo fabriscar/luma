@@ -189,6 +189,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (selectProducto) {
+        selectProducto.addEventListener('change', () => {
+            const groupNombre = document.getElementById('group-venta-producto-custom');
+            const groupPrecio = document.getElementById('group-venta-precio-custom');
+            const inputNombre = document.getElementById('venta-producto-custom');
+            const inputPrecio = document.getElementById('venta-precio-custom');
+            
+            if (selectProducto.value === 'custom') {
+                if (groupNombre) groupNombre.classList.remove('hidden');
+                if (groupPrecio) groupPrecio.classList.remove('hidden');
+                if (inputNombre) inputNombre.required = true;
+                if (inputPrecio) inputPrecio.required = true;
+            } else {
+                if (groupNombre) groupNombre.classList.add('hidden');
+                if (groupPrecio) groupPrecio.classList.add('hidden');
+                if (inputNombre) {
+                    inputNombre.required = false;
+                    inputNombre.value = '';
+                }
+                if (inputPrecio) {
+                    inputPrecio.required = false;
+                    inputPrecio.value = '';
+                }
+            }
+        });
+    }
+
     // =======================================================
     // --- LLENAR DESPLEGABLES DE VENTA ---
     // =======================================================
@@ -202,6 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.textContent = `${p.nombre} ($${p.precioBase})`;
             selectProducto.appendChild(opt);
         });
+        selectProducto.innerHTML += '<option value="custom">-- 🌟 Producto Personalizado --</option>';
 
         if (filamentosContainer && filamentosContainer.children.length === 0) {
             agregarFilaFilamentoVenta();
@@ -963,7 +991,21 @@ document.addEventListener('DOMContentLoaded', () => {
         editPedidoId = pedido.id;
         document.getElementById('venta-cliente').value = pedido.cliente;
         document.getElementById('venta-entrega').value = pedido.fechaEntrega;
-        document.getElementById('venta-producto').value = ""; // No podemos setear el producto original facilmente
+        
+        let foundProd = productosCargados.find(p => p.nombre === pedido.nombreProducto);
+        if (foundProd) {
+            document.getElementById('venta-producto').value = foundProd.id;
+            if (selectProducto) selectProducto.dispatchEvent(new Event('change'));
+        } else if (pedido.nombreProducto) {
+            document.getElementById('venta-producto').value = 'custom';
+            if (selectProducto) selectProducto.dispatchEvent(new Event('change'));
+            document.getElementById('venta-producto-custom').value = pedido.nombreProducto;
+            document.getElementById('venta-precio-custom').value = (parseFloat(pedido.totalPedido) / (pedido.cantidad || 1)).toFixed(2);
+        } else {
+            document.getElementById('venta-producto').value = "";
+            if (selectProducto) selectProducto.dispatchEvent(new Event('change'));
+        }
+        
         if (document.getElementById('venta-detalles')) document.getElementById('venta-detalles').value = pedido.detalles || '';
         
         // Llenar filamentos dinámicos
@@ -1007,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function cancelarEdicionPedido() {
         editPedidoId = null;
         ventaForm.reset();
+        if (selectProducto) selectProducto.dispatchEvent(new Event('change'));
         filamentosContainer.innerHTML = '';
         agregarFilaFilamentoVenta();
         groupMontoSena.classList.add('hidden');
@@ -1176,10 +1219,22 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSubmit.disabled = true;
             btnSubmit.textContent = 'Creando...';
 
+            const esCustom = selectProducto.value === 'custom';
             const prodId = parseInt(selectProducto.value);
             const prodRef = productosCargados.find(p => p.id === prodId);
             const cantidad = parseInt(document.getElementById('venta-cantidad').value) || 1;
-            const totalCalculado = prodRef ? (parseFloat(prodRef.precioBase) * cantidad).toFixed(2) : 0;
+            
+            let totalCalculado = 0;
+            let nombreProdFinal = null;
+
+            if (esCustom) {
+                const precioUnidad = parseFloat(document.getElementById('venta-precio-custom').value) || 0;
+                totalCalculado = (precioUnidad * cantidad).toFixed(2);
+                nombreProdFinal = document.getElementById('venta-producto-custom').value;
+            } else {
+                totalCalculado = prodRef ? (parseFloat(prodRef.precioBase) * cantidad).toFixed(2) : 0;
+                nombreProdFinal = prodRef ? prodRef.nombre : null;
+            }
 
             const filamentosPayload = [];
             const nombresMateriales = [];
@@ -1204,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 estadoPago: selectEstadoPago.value,
                 montoSena: selectEstadoPago.value === 'SENADO' ? parseFloat(inputMontoSena.value) || 0 : 0,
                 estadoProduccion: 'PENDIENTE_HACER',
-                nombreProducto: prodRef ? prodRef.nombre : null,
+                nombreProducto: nombreProdFinal,
                 cantidad: cantidad,
                 materialColor: nombresMateriales.join(' + '),
                 filamentos: filamentosPayload,
