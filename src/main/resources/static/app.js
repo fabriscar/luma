@@ -1068,13 +1068,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const entregados = pedidosCargados.filter(p => p.estadoProduccion === 'ENTREGADO');
 
         // Actualizar resumen
-        const totalFacturado = entregados.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0);
+        const SALDO_INICIAL = 81000; // Ajuste manual por pedidos viejos no registrados
+        
+        const totalFacturado = entregados.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0) + SALDO_INICIAL;
         const totalCobrado = entregados
             .filter(p => p.estadoPago === 'PAGADO')
             .reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0)
             + entregados
             .filter(p => p.estadoPago === 'SENADO')
-            .reduce((sum, p) => sum + parseFloat(p.montoSena || 0), 0);
+            .reduce((sum, p) => sum + parseFloat(p.montoSena || 0), 0)
+            + SALDO_INICIAL;
             
         const totalGastos = comprasCargadas.reduce((sum, c) => sum + parseFloat(c.montoTotal || 0), 0);
         const saldoNeto = totalCobrado - totalGastos;
