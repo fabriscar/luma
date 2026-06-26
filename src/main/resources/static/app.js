@@ -1454,7 +1454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function iniciarSesionUI() {
         loginContainer.classList.add('hidden');
         dashboardContainer.classList.remove('hidden');
-        cargarFiltrosGuardados();
+        loginForm.reset();
         
         cargarProductos();
         cargarFilamentos();
