@@ -848,6 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filtrados.forEach(pedido => {
             const card = document.createElement('div');
             card.className = 'kanban-card';
+            card.dataset.id = pedido.id;
 
             const badgeClass = pedido.estadoPago === 'PAGADO' ? 'badge-pagado' : (pedido.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
             const textoPago = pedido.estadoPago === 'SENADO' ? `SEÑADO ($${pedido.montoSena})` : pedido.estadoPago.replace('_', ' ');
@@ -897,6 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pedido.estadoProduccion === 'EN_PRODUCCION') cardsProgreso.appendChild(card);
             else if (pedido.estadoProduccion === 'PENDIENTE_ENTREGA') cardsEntrega.appendChild(card);
         });
+        initSortableKanban();
     }
 
     // Delegación de eventos en el Kanban
@@ -1452,11 +1454,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function iniciarSesionUI() {
         loginContainer.classList.add('hidden');
         dashboardContainer.classList.remove('hidden');
-        loginForm.reset();
+        cargarFiltrosGuardados();
+        
         cargarProductos();
         cargarFilamentos();
         cargarPedidos();
         cargarCompras();
+        
+        connectWebSocket();
     }
 
     function cerrarSesion(expirado = false) {
@@ -1490,6 +1495,10 @@ document.addEventListener('DOMContentLoaded', () => {
         button.classList.add('active');
         document.getElementById(`section-${button.getAttribute('data-section')}`).classList.remove('hidden');
 
+        if (button.getAttribute('data-section') === 'estadisticas') {
+            renderCharts();
+        }
+
         // Responsive: Cerrar sidebar al hacer clic en móvil
         const sidebarEl = document.getElementById('sidebar');
         const overlayEl = document.getElementById('sidebar-overlay');
@@ -1512,6 +1521,101 @@ document.addEventListener('DOMContentLoaded', () => {
         overlayEl.addEventListener('click', () => {
             sidebarEl.classList.remove('open');
             overlayEl.classList.remove('active');
+        });
+    }
+
+    // --- FUNCIONES EXTRA (DRAG&DROP, CHARTS, WS) ---
+    let sortables = [];
+    function initSortableKanban() {
+        if (typeof Sortable === 'undefined') return;
+        sortables.forEach(s => s.destroy());
+        sortables = [];
+        const opts = {
+            group: 'kanban',
+            animation: 150,
+            onEnd: async function (evt) {
+                const itemEl = evt.item;
+                const pedidoId = itemEl.dataset.id;
+                const toListId = evt.to.id;
+
+                let nuevoEstado = '';
+                if (toListId === 'cards-pendiente') nuevoEstado = 'PENDIENTE_HACER';
+                else if (toListId === 'cards-progreso') nuevoEstado = 'EN_PRODUCCION';
+                else if (toListId === 'cards-entrega') nuevoEstado = 'PENDIENTE_ENTREGA';
+
+                if (!nuevoEstado) return;
+                const pedido = pedidosCargados.find(p => p.id == pedidoId);
+                if (pedido && pedido.estadoProduccion !== nuevoEstado) {
+                    try {
+                        pedido.estadoProduccion = nuevoEstado;
+                        const res = await fetchAuth(`${API_BASE}/pedidos/${pedidoId}/estado?nuevoEstado=${nuevoEstado}`, { method: 'PATCH' });
+                        if (!res.ok) throw new Error();
+                    } catch (e) {
+                        cargarPedidos();
+                    }
+                }
+            }
+        };
+        sortables.push(Sortable.create(cardsPendiente, opts));
+        sortables.push(Sortable.create(cardsProgreso, opts));
+        sortables.push(Sortable.create(cardsEntrega, opts));
+    }
+
+    let chartVentas = null;
+    let chartProduccion = null;
+    function renderCharts() {
+        if (typeof Chart === 'undefined') return;
+        const ctxVentas = document.getElementById('chart-ventas');
+        const ctxProd = document.getElementById('chart-produccion');
+        if (!ctxVentas || !ctxProd) return;
+
+        let pagado = 0, senado = 0, nopagado = 0;
+        let pending = 0, prod = 0, entrega = 0, entregado = 0;
+
+        pedidosCargados.forEach(p => {
+            if(p.estadoPago === 'PAGADO') pagado++;
+            else if(p.estadoPago === 'SENADO') senado++;
+            else nopagado++;
+
+            if(p.estadoProduccion === 'PENDIENTE_HACER') pending++;
+            else if(p.estadoProduccion === 'EN_PRODUCCION') prod++;
+            else if(p.estadoProduccion === 'PENDIENTE_ENTREGA') entrega++;
+            else entregado++;
+        });
+
+        if (chartVentas) chartVentas.destroy();
+        chartVentas = new Chart(ctxVentas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pagado', 'Señado', 'No Pagado'],
+                datasets: [{ data: [pagado, senado, nopagado], backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'], borderWidth: 0 }]
+            },
+            options: { plugins: { legend: { labels: { color: '#f4f4f5' } } } }
+        });
+
+        if (chartProduccion) chartProduccion.destroy();
+        chartProduccion = new Chart(ctxProd, {
+            type: 'bar',
+            data: {
+                labels: ['Pendiente', 'En Prod.', 'P. Entrega', 'Entregado'],
+                datasets: [{ label: 'Pedidos', data: [pending, prod, entrega, entregado], backgroundColor: '#3b82f6', borderRadius: 4 }]
+            },
+            options: { scales: { y: { beginAtZero: true, ticks: { color: '#f4f4f5' } }, x: { ticks: { color: '#f4f4f5' } } }, plugins: { legend: { labels: { color: '#f4f4f5' } } } }
+        });
+    }
+
+    let stompClient = null;
+    function connectWebSocket() {
+        if (typeof SockJS === 'undefined' || typeof window.Stomp === 'undefined') return;
+        const socket = new SockJS('/ws');
+        stompClient = window.Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/pedidos', function (mensaje) {
+                cargarPedidos();
+            });
+        }, function(err) {
+            setTimeout(connectWebSocket, 5000);
         });
     }
 });

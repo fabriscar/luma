@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LUMA - Gestión de Impresión 3D</title>
     <link rel="icon" href="logo.png" type="image/png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#fdb508">
+    <link rel="apple-touch-icon" href="logo.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -46,6 +49,7 @@
                 <button class="nav-btn" data-section="productos">Productos (Catálogo)</button>
                 <button class="nav-btn" data-section="stock">Stock Filamentos</button>
                 <button class="nav-btn" data-section="historial">📦 Historial</button>
+                <button class="nav-btn" data-section="estadisticas">📊 Estadísticas</button>
             </nav>
             <div class="sidebar-footer">
                 <button id="logout-btn" class="btn-secondary">Cerrar Sesión</button>
@@ -438,6 +442,20 @@
                     </table>
                 </div>
             </section>
+            <!-- ====== SECCIÓN: ESTADÍSTICAS ====== -->
+            <section id="section-estadisticas" class="content-section hidden">
+                <h2>📊 Estadísticas del Negocio</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 1rem;">
+                    <div style="background: var(--bg-panel); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
+                        <h3 style="margin-bottom: 1rem; text-align: center;">Ventas por Estado</h3>
+                        <canvas id="chart-ventas"></canvas>
+                    </div>
+                    <div style="background: var(--bg-panel); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
+                        <h3 style="margin-bottom: 1rem; text-align: center;">Producción Mensual</h3>
+                        <canvas id="chart-produccion"></canvas>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -461,6 +479,12 @@
     <!-- Área de impresión para generación de PDF (oculto en pantalla, visible al imprimir) -->
     <div id="print-area"></div>
 
-    <script src="app.js?v=3"></script>
+    <!-- Librerías Externas -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
+
+    <script src="app.js?v=4"></script>
 </body>
 </html>

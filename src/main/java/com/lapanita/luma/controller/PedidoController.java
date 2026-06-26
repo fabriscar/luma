@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.util.List;
 
 @RestController
@@ -17,6 +18,13 @@ public class PedidoController {
 
     @Autowired
     private PedidoService pedidoService;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    private void notificarCambio() {
+        messagingTemplate.convertAndSend("/topic/pedidos", "update");
+    }
 
     @GetMapping
     public List<Pedido> listar() {
@@ -31,12 +39,15 @@ public class PedidoController {
     @PostMapping
     public ResponseEntity<Pedido> guardar(@RequestBody Pedido pedido) {
         Pedido guardado = pedidoService.guardar(pedido);
+        notificarCambio();
         return new ResponseEntity<>(guardado, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Pedido> actualizar(@PathVariable Integer id, @RequestBody Pedido pedidoActualizado) {
-        return ResponseEntity.ok(pedidoService.actualizar(id, pedidoActualizado));
+        Pedido actualizado = pedidoService.actualizar(id, pedidoActualizado);
+        notificarCambio();
+        return ResponseEntity.ok(actualizado);
     }
 
     // Endpoint específico para mover las tarjetas en el tablero Kanban
@@ -45,6 +56,7 @@ public class PedidoController {
             @PathVariable Integer id,
             @RequestParam("nuevoEstado") EstadoProduccion nuevoEstado) {
         Pedido actualizado = pedidoService.actualizarEstadoProduccion(id, nuevoEstado);
+        notificarCambio();
         return ResponseEntity.ok(actualizado);
     }
 
@@ -54,12 +66,15 @@ public class PedidoController {
             @RequestParam("nuevoEstado") com.lapanita.luma.model.EstadoPago nuevoEstado) {
         Pedido pedido = pedidoService.obtenerPorId(id);
         pedido.setEstadoPago(nuevoEstado);
-        return ResponseEntity.ok(pedidoService.guardar(pedido));
+        Pedido guardado = pedidoService.guardar(pedido);
+        notificarCambio();
+        return ResponseEntity.ok(guardado);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         pedidoService.eliminar(id);
+        notificarCambio();
         return ResponseEntity.noContent().build();
     }
 }
