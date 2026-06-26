@@ -1489,5 +1489,29 @@ document.addEventListener('DOMContentLoaded', () => {
         sections.forEach(sec => sec.classList.add('hidden'));
         button.classList.add('active');
         document.getElementById(`section-${button.getAttribute('data-section')}`).classList.remove('hidden');
+
+        // Responsive: Cerrar sidebar al hacer clic en móvil
+        const sidebarEl = document.getElementById('sidebar');
+        const overlayEl = document.getElementById('sidebar-overlay');
+        if (sidebarEl && sidebarEl.classList.contains('open')) {
+            sidebarEl.classList.remove('open');
+            if (overlayEl) overlayEl.classList.remove('active');
+        }
     }));
+
+    // --- RESPONSIVE MOBILE MENU ---
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const sidebarEl = document.getElementById('sidebar');
+    const overlayEl = document.getElementById('sidebar-overlay');
+
+    if (mobileMenuBtn && sidebarEl && overlayEl) {
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebarEl.classList.add('open');
+            overlayEl.classList.add('active');
+        });
+        overlayEl.addEventListener('click', () => {
+            sidebarEl.classList.remove('open');
+            overlayEl.classList.remove('active');
+        });
+    }
 });

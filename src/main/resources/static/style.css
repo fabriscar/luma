@@ -967,4 +967,96 @@ input[type="file"]::file-selector-button:hover {
         font-style: italic;
     }
 }
-
+
+/* --- RESPONSIVE MOBILE --- */
+.mobile-header {
+    display: none;
+    background-color: var(--bg-panel);
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.mobile-menu-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    display: none;
+}
+.sidebar-overlay.active {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    #dashboard-container {
+        flex-direction: column;
+    }
+    .mobile-header {
+        display: flex;
+    }
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 999;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        width: 260px;
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    .main-content {
+        padding: 1.25rem;
+    }
+    .main-content h2 {
+        font-size: 1.4rem;
+        margin-bottom: 1rem;
+    }
+    .kanban-board {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .inline-form {
+        flex-direction: column;
+    }
+    .form-group {
+        width: 100%;
+        min-width: 100% !important;
+    }
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-top: 1rem;
+    }
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .btn-limpiar {
+        margin-top: 10px;
+    }
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 1.5rem;
+    }
+}
