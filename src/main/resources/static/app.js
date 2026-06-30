@@ -1084,16 +1084,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const grid = document.getElementById('historial-grid');
         if (!grid) return;
 
+        // Incluimos pedidos ENTREGADOS + pedidos PAGADOS que aún no fueron entregados
         const entregados = pedidosCargados.filter(p => p.estadoProduccion === 'ENTREGADO');
+        const pagadosNoEntregados = pedidosCargados.filter(p =>
+            p.estadoPago === 'PAGADO' && p.estadoProduccion !== 'ENTREGADO'
+        );
+        const enHistorial = [...entregados, ...pagadosNoEntregados];
 
         // Actualizar resumen
         const SALDO_INICIAL = 81000; // Ajuste manual por pedidos viejos no registrados
         
-        const totalFacturado = entregados.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0) + SALDO_INICIAL;
-        const totalCobrado = entregados
+        // Facturado: todo lo entregado + lo pagado (aunque no entregado)
+        const totalFacturado = enHistorial.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0) + SALDO_INICIAL;
+
+        // Cobrado: pagados completos + señas de senados (de todo el historial)
+        const totalCobrado = enHistorial
             .filter(p => p.estadoPago === 'PAGADO')
             .reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0)
-            + entregados
+            + enHistorial
             .filter(p => p.estadoPago === 'SENADO')
             .reduce((sum, p) => sum + parseFloat(p.montoSena || 0), 0)
             + SALDO_INICIAL;
@@ -1107,26 +1115,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const elGastos    = document.getElementById('hist-total-gastos');
         const elSaldoNeto = document.getElementById('hist-saldo-neto');
         
-        if (elTotalPed)  elTotalPed.textContent  = entregados.length;
+        if (elTotalPed)  elTotalPed.textContent  = enHistorial.length;
         if (elFacturado) elFacturado.textContent = `$${totalFacturado.toFixed(2)}`;
         if (elCobrado)   elCobrado.textContent   = `$${totalCobrado.toFixed(2)}`;
         if (elGastos)    elGastos.textContent    = `$${totalGastos.toFixed(2)}`;
         if (elSaldoNeto) elSaldoNeto.textContent = `$${saldoNeto.toFixed(2)}`;
 
-        // Aplicar filtros
-        const filtrados = entregados.filter(p => {
+        // Aplicar filtros al historial completo
+        const filtrados = enHistorial.filter(p => {
             const matchCliente = !filtroHistorial.cliente || p.cliente.toLowerCase().includes(filtroHistorial.cliente.toLowerCase());
             const matchPago    = !filtroHistorial.estadoPago || p.estadoPago === filtroHistorial.estadoPago;
             return matchCliente && matchPago;
         });
 
-        actualizarContador('contador-hist', filtrados.length, entregados.length);
+        actualizarContador('contador-hist', filtrados.length, enHistorial.length);
 
         grid.innerHTML = '';
 
         if (filtrados.length === 0) {
             grid.innerHTML = `<p style="color:var(--text-muted);font-style:italic;padding:1rem;">${
-                entregados.length === 0 ? 'Todavía no hay pedidos entregados.' : 'Sin resultados para los filtros aplicados.'
+                enHistorial.length === 0 ? 'Todavía no hay pedidos pagados ni entregados.' : 'Sin resultados para los filtros aplicados.'
             }</p>`;
             return;
         }
@@ -1142,12 +1150,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 listaProductos += '</ul>';
             }
 
+            // Badge extra si está pagado pero aún no fue entregado
+            const pendienteEntregaBadge = p.estadoProduccion !== 'ENTREGADO'
+                ? `<span style="font-size:0.72rem;color:var(--warning-color);background:rgba(255,180,0,0.12);border-radius:4px;padding:2px 7px;margin-left:4px;">⏳ Pendiente de entrega</span>`
+                : '';
+
             const card = document.createElement('div');
             card.className = 'historial-card';
             card.innerHTML = `
-                <div class="hc-cliente">${p.cliente}</div>
+                <div class="hc-cliente">${p.cliente}${pendienteEntregaBadge}</div>
                 <div class="hc-info">
-                    <span>📦 Entregado: ${p.fechaEntrega || '-'}</span>
+                    <span>📦 ${p.estadoProduccion === 'ENTREGADO' ? 'Entregado' : 'Entrega esperada'}: ${p.fechaEntrega || '-'}</span>
                     <span>🎨 Material: ${p.materialColor || '-'}</span>
                     ${listaProductos}
                 </div>
