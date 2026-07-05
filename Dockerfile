@@ -5,13 +5,14 @@ FROM maven:3.9.6-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-# Copiar primero solo el pom.xml para aprovechar la caché de dependencias
+# Copiar primero solo el pom.xml para aprovechar la caché de dependencias de Maven
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copiar el código fuente y compilar
+# Copiar TODO el código fuente (incluyendo src/main/resources/static/)
+# Este COPY invalida el cache de Docker cada vez que cambia cualquier archivo en src/
 COPY src ./src
-RUN mvn package -DskipTests -B
+RUN mvn package -DskipTests -B --no-transfer-progress
 
 # =====================================================
 # STAGE 2: RUN — Imagen liviana solo con el JRE
