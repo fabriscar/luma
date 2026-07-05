@@ -444,15 +444,87 @@
             </section>
             <!-- ====== SECCIÓN: ESTADÍSTICAS ====== -->
             <section id="section-estadisticas" class="content-section hidden">
-                <h2>📊 Estadísticas del Negocio</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 1rem;">
-                    <div style="background: var(--bg-panel); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
-                        <h3 style="margin-bottom: 1rem; text-align: center;">Ventas por Estado</h3>
-                        <canvas id="chart-ventas"></canvas>
+                <h2>📊 Estadísticas Financieras</h2>
+
+                <!-- Selector de período -->
+                <div class="periodo-selector-bar">
+                    <div class="periodo-tabs">
+                        <button class="periodo-tab active" data-periodo="hoy">Hoy</button>
+                        <button class="periodo-tab" data-periodo="semana">Esta Semana</button>
+                        <button class="periodo-tab" data-periodo="mes">Este Mes</button>
+                        <button class="periodo-tab" data-periodo="anio">Este Año</button>
+                        <button class="periodo-tab" data-periodo="todo">Todo</button>
+                        <button class="periodo-tab" data-periodo="custom">Personalizado</button>
                     </div>
-                    <div style="background: var(--bg-panel); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
-                        <h3 style="margin-bottom: 1rem; text-align: center;">Producción Mensual</h3>
-                        <canvas id="chart-produccion"></canvas>
+                    <div class="periodo-custom-range hidden" id="periodo-custom-range">
+                        <div class="periodo-date-group">
+                            <label>Desde</label>
+                            <input type="date" id="periodo-desde">
+                        </div>
+                        <div class="periodo-date-group">
+                            <label>Hasta</label>
+                            <input type="date" id="periodo-hasta">
+                        </div>
+                        <button class="btn-primary btn-inline" id="btn-aplicar-periodo" style="height:36px;padding:0 1rem;font-size:0.85rem;">Aplicar</button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="est-kpi-grid" id="est-kpi-grid">
+                    <div class="est-kpi-card">
+                        <div class="est-kpi-icon">📦</div>
+                        <div class="est-kpi-valor" id="est-kpi-pedidos">0</div>
+                        <div class="est-kpi-label">Pedidos</div>
+                    </div>
+                    <div class="est-kpi-card">
+                        <div class="est-kpi-icon">📋</div>
+                        <div class="est-kpi-valor" id="est-kpi-facturado">$0</div>
+                        <div class="est-kpi-label">Total Facturado</div>
+                    </div>
+                    <div class="est-kpi-card est-kpi-cobrado">
+                        <div class="est-kpi-icon">💰</div>
+                        <div class="est-kpi-valor" id="est-kpi-cobrado">$0</div>
+                        <div class="est-kpi-label">Total Cobrado</div>
+                    </div>
+                    <div class="est-kpi-card est-kpi-gastos">
+                        <div class="est-kpi-icon">🧾</div>
+                        <div class="est-kpi-valor" id="est-kpi-gastos">$0</div>
+                        <div class="est-kpi-label">Gastos / Insumos</div>
+                    </div>
+                    <div class="est-kpi-card est-kpi-saldo" id="est-kpi-card-saldo">
+                        <div class="est-kpi-icon">📈</div>
+                        <div class="est-kpi-valor" id="est-kpi-saldo">$0</div>
+                        <div class="est-kpi-label">Saldo Neto</div>
+                    </div>
+                    <div class="est-kpi-card est-kpi-pendiente">
+                        <div class="est-kpi-icon">⏳</div>
+                        <div class="est-kpi-valor" id="est-kpi-pendiente">$0</div>
+                        <div class="est-kpi-label">Por Cobrar</div>
+                    </div>
+                </div>
+
+                <!-- Gráfico de barras -->
+                <div class="est-chart-container">
+                    <h3 class="est-chart-title">Ingresos vs Gastos por Período</h3>
+                    <canvas id="chart-ingresos-gastos"></canvas>
+                </div>
+
+                <!-- Tabla de detalle del período -->
+                <div class="est-detalle-section">
+                    <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-muted);">📋 Detalle del Período</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Estado Pago</th>
+                                    <th>Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="est-detalle-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -485,6 +557,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>

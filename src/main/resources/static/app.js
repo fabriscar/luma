@@ -1509,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(`section-${button.getAttribute('data-section')}`).classList.remove('hidden');
 
         if (button.getAttribute('data-section') === 'estadisticas') {
-            renderCharts();
+            renderEstadisticas();
         }
 
         // Responsive: Cerrar sidebar al hacer clic en móvil
@@ -1574,48 +1574,375 @@ document.addEventListener('DOMContentLoaded', () => {
         sortables.push(Sortable.create(cardsEntrega, opts));
     }
 
-    let chartVentas = null;
-    let chartProduccion = null;
-    function renderCharts() {
+    // =======================================================
+    // --- ESTADÍSTICAS POR PERÍODO ---
+    // =======================================================
+    let chartIngresosGastos = null;
+    let estadisticasPeriodo = 'hoy'; // Período activo
+    let estadisticasDesde = null;
+    let estadisticasHasta = null;
+
+    function getDateRangeForPeriodo(periodo) {
+        const now = new Date();
+        const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let desde, hasta;
+
+        switch (periodo) {
+            case 'hoy':
+                desde = new Date(hoy);
+                hasta = new Date(hoy);
+                hasta.setHours(23, 59, 59, 999);
+                break;
+            case 'semana': {
+                // Lunes como inicio de semana
+                const diaSemana = hoy.getDay(); // 0=Dom, 1=Lun...
+                const diff = diaSemana === 0 ? -6 : 1 - diaSemana;
+                desde = new Date(hoy);
+                desde.setDate(hoy.getDate() + diff);
+                hasta = new Date(desde);
+                hasta.setDate(desde.getDate() + 6);
+                hasta.setHours(23, 59, 59, 999);
+                break;
+            }
+            case 'mes':
+                desde = new Date(now.getFullYear(), now.getMonth(), 1);
+                hasta = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                hasta.setHours(23, 59, 59, 999);
+                break;
+            case 'anio':
+                desde = new Date(now.getFullYear(), 0, 1);
+                hasta = new Date(now.getFullYear(), 11, 31);
+                hasta.setHours(23, 59, 59, 999);
+                break;
+            case 'todo':
+                desde = new Date(2000, 0, 1);
+                hasta = new Date(2099, 11, 31);
+                hasta.setHours(23, 59, 59, 999);
+                break;
+            case 'custom':
+                desde = estadisticasDesde ? new Date(estadisticasDesde + 'T00:00:00') : new Date(2000, 0, 1);
+                hasta = estadisticasHasta ? new Date(estadisticasHasta + 'T23:59:59') : new Date(2099, 11, 31);
+                break;
+            default:
+                desde = new Date(hoy);
+                hasta = new Date(hoy);
+                hasta.setHours(23, 59, 59, 999);
+        }
+        return { desde, hasta };
+    }
+
+    function getPedidoFecha(p) {
+        // Usar fechaPedido si existe, sino fechaEntrega
+        if (p.fechaPedido) return new Date(p.fechaPedido);
+        if (p.fechaEntrega) return new Date(p.fechaEntrega + 'T00:00:00');
+        return null;
+    }
+
+    function getGastoLabels(periodo, desde, hasta) {
+        // Generar etiquetas para el gráfico según el período
+        const labels = [];
+        const valores = { ingresos: [], gastos: [] };
+        const now = new Date();
+
+        if (periodo === 'hoy') {
+            // Por hora
+            for (let h = 0; h < 24; h += 4) {
+                labels.push(`${h}:00`);
+            }
+            for (let i = 0; i < labels.length; i++) {
+                const hInicio = i * 4;
+                const hFin = hInicio + 3;
+                const pedsFiltrados = pedidosCargados.filter(p => {
+                    const f = getPedidoFecha(p);
+                    if (!f) return false;
+                    const mismaFecha = f.getFullYear() === desde.getFullYear() && f.getMonth() === desde.getMonth() && f.getDate() === desde.getDate();
+                    return mismaFecha && f.getHours() >= hInicio && f.getHours() <= hFin;
+                });
+                const gastosFiltrados = comprasCargadas.filter(c => {
+                    if (!c.fechaCompra) return false;
+                    const fc = new Date(c.fechaCompra + 'T00:00:00');
+                    return fc >= desde && fc <= hasta;
+                });
+                const ing = pedsFiltrados.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+                const gas = i === 0 ? gastosFiltrados.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0) : 0;
+                valores.ingresos.push(ing);
+                valores.gastos.push(gas);
+            }
+        } else if (periodo === 'semana') {
+            const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+            dias.forEach((d, i) => {
+                labels.push(d);
+                const diaDate = new Date(desde);
+                diaDate.setDate(desde.getDate() + i);
+                const diaFin = new Date(diaDate);
+                diaFin.setHours(23, 59, 59, 999);
+
+                const pedsDia = pedidosCargados.filter(p => {
+                    const f = getPedidoFecha(p);
+                    return f && f >= diaDate && f <= diaFin;
+                });
+                const gastosDia = comprasCargadas.filter(c => {
+                    if (!c.fechaCompra) return false;
+                    const fc = new Date(c.fechaCompra + 'T00:00:00');
+                    return fc >= diaDate && fc <= diaFin;
+                });
+                valores.ingresos.push(pedsDia.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                valores.gastos.push(gastosDia.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
+            });
+        } else if (periodo === 'mes') {
+            // Dividir en semanas del mes
+            const diasEnMes = hasta.getDate();
+            const semanas = Math.ceil(diasEnMes / 7);
+            for (let i = 0; i < semanas; i++) {
+                const semInicio = new Date(desde);
+                semInicio.setDate(1 + i * 7);
+                const semFin = new Date(desde);
+                semFin.setDate(Math.min(1 + (i + 1) * 7 - 1, diasEnMes));
+                semFin.setHours(23, 59, 59, 999);
+                labels.push(`Sem ${i + 1}`);
+                const pedsSem = pedidosCargados.filter(p => {
+                    const f = getPedidoFecha(p);
+                    return f && f >= semInicio && f <= semFin;
+                });
+                const gastosSem = comprasCargadas.filter(c => {
+                    if (!c.fechaCompra) return false;
+                    const fc = new Date(c.fechaCompra + 'T00:00:00');
+                    return fc >= semInicio && fc <= semFin;
+                });
+                valores.ingresos.push(pedsSem.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                valores.gastos.push(gastosSem.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
+            }
+        } else {
+            // Por mes (anio, todo, custom)
+            // Agrupar por año-mes
+            const mesesSet = new Set();
+            pedidosCargados.forEach(p => {
+                const f = getPedidoFecha(p);
+                if (f && f >= desde && f <= hasta) mesesSet.add(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}`);
+            });
+            comprasCargadas.forEach(c => {
+                if (!c.fechaCompra) return;
+                const fc = new Date(c.fechaCompra + 'T00:00:00');
+                if (fc >= desde && fc <= hasta) mesesSet.add(`${fc.getFullYear()}-${String(fc.getMonth()+1).padStart(2,'0')}`);
+            });
+            const mesesOrdenados = Array.from(mesesSet).sort();
+            if (mesesOrdenados.length === 0) {
+                mesesOrdenados.push(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+            }
+            const nombMeses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            mesesOrdenados.forEach(ym => {
+                const [y, m] = ym.split('-').map(Number);
+                labels.push(`${nombMeses[m-1]} ${y}`);
+                const mesInicio = new Date(y, m-1, 1);
+                const mesFin = new Date(y, m, 0);
+                mesFin.setHours(23, 59, 59, 999);
+                const pedsMes = pedidosCargados.filter(p => {
+                    const f = getPedidoFecha(p);
+                    return f && f >= mesInicio && f <= mesFin;
+                });
+                const gastosMes = comprasCargadas.filter(c => {
+                    if (!c.fechaCompra) return false;
+                    const fc = new Date(c.fechaCompra + 'T00:00:00');
+                    return fc >= mesInicio && fc <= mesFin;
+                });
+                valores.ingresos.push(pedsMes.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                valores.gastos.push(gastosMes.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
+            });
+        }
+
+        return { labels, valores };
+    }
+
+    function renderEstadisticas() {
         if (typeof Chart === 'undefined') return;
-        const ctxVentas = document.getElementById('chart-ventas');
-        const ctxProd = document.getElementById('chart-produccion');
-        if (!ctxVentas || !ctxProd) return;
 
-        let pagado = 0, senado = 0, nopagado = 0;
-        let pending = 0, prod = 0, entrega = 0, entregado = 0;
+        const { desde, hasta } = getDateRangeForPeriodo(estadisticasPeriodo);
 
-        pedidosCargados.forEach(p => {
-            if(p.estadoPago === 'PAGADO') pagado++;
-            else if(p.estadoPago === 'SENADO') senado++;
-            else nopagado++;
-
-            if(p.estadoProduccion === 'PENDIENTE_HACER') pending++;
-            else if(p.estadoProduccion === 'EN_PRODUCCION') prod++;
-            else if(p.estadoProduccion === 'PENDIENTE_ENTREGA') entrega++;
-            else entregado++;
+        // Filtrar pedidos y compras por período
+        const pedidosPeriodo = pedidosCargados.filter(p => {
+            const f = getPedidoFecha(p);
+            return f && f >= desde && f <= hasta;
+        });
+        const comprasPeriodo = comprasCargadas.filter(c => {
+            if (!c.fechaCompra) return false;
+            const fc = new Date(c.fechaCompra + 'T00:00:00');
+            return fc >= desde && fc <= hasta;
         });
 
-        if (chartVentas) chartVentas.destroy();
-        chartVentas = new Chart(ctxVentas, {
-            type: 'doughnut',
-            data: {
-                labels: ['Pagado', 'Señado', 'No Pagado'],
-                datasets: [{ data: [pagado, senado, nopagado], backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'], borderWidth: 0 }]
-            },
-            options: { plugins: { legend: { labels: { color: '#f4f4f5' } } } }
+        // --- CALCULAR KPIs ---
+        const totalFacturado = pedidosPeriodo.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+
+        const totalCobrado = pedidosPeriodo
+            .filter(p => p.estadoPago === 'PAGADO')
+            .reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0)
+            + pedidosPeriodo
+            .filter(p => p.estadoPago === 'SENADO')
+            .reduce((s, p) => s + parseFloat(p.montoSena || 0), 0);
+
+        const totalGastos = comprasPeriodo.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0);
+        const saldoNeto = totalCobrado - totalGastos;
+
+        const totalPendiente = pedidosPeriodo
+            .filter(p => p.estadoPago === 'NO_PAGADO')
+            .reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0)
+            + pedidosPeriodo
+            .filter(p => p.estadoPago === 'SENADO')
+            .reduce((s, p) => s + (parseFloat(p.totalPedido || 0) - parseFloat(p.montoSena || 0)), 0);
+
+        // Actualizar KPI cards
+        const el = id => document.getElementById(id);
+        if (el('est-kpi-pedidos')) el('est-kpi-pedidos').textContent = pedidosPeriodo.length;
+        if (el('est-kpi-facturado')) el('est-kpi-facturado').textContent = `$${totalFacturado.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (el('est-kpi-cobrado')) el('est-kpi-cobrado').textContent = `$${totalCobrado.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (el('est-kpi-gastos')) el('est-kpi-gastos').textContent = `$${totalGastos.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (el('est-kpi-saldo')) {
+            el('est-kpi-saldo').textContent = `$${saldoNeto.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            const card = el('est-kpi-card-saldo');
+            if (card) {
+                card.classList.remove('est-kpi-saldo-positivo', 'est-kpi-saldo-negativo');
+                card.classList.add(saldoNeto >= 0 ? 'est-kpi-saldo-positivo' : 'est-kpi-saldo-negativo');
+            }
+        }
+        if (el('est-kpi-pendiente')) el('est-kpi-pendiente').textContent = `$${totalPendiente.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+        // --- GRÁFICO ---
+        const { labels, valores } = getGastoLabels(estadisticasPeriodo, desde, hasta);
+        const ctx = el('chart-ingresos-gastos');
+        if (ctx) {
+            if (chartIngresosGastos) chartIngresosGastos.destroy();
+            chartIngresosGastos = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Facturado ($)',
+                            data: valores.ingresos,
+                            backgroundColor: 'rgba(253, 181, 8, 0.75)',
+                            borderColor: '#fdb508',
+                            borderWidth: 1,
+                            borderRadius: 5,
+                        },
+                        {
+                            label: 'Gastos ($)',
+                            data: valores.gastos,
+                            backgroundColor: 'rgba(239, 68, 68, 0.65)',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
+                            borderRadius: 5,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#f4f4f5', font: { size: 13 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` $${ctx.parsed.y.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#a1a1aa',
+                                callback: v => `$${v.toLocaleString('es-AR')}`
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: {
+                            ticks: { color: '#a1a1aa' },
+                            grid: { color: 'rgba(255,255,255,0.04)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- TABLA DE DETALLE ---
+        const detalleBody = el('est-detalle-body');
+        if (!detalleBody) return;
+        detalleBody.innerHTML = '';
+
+        // Unir pedidos y compras del período, ordenados por fecha
+        const itemsDetalle = [];
+        pedidosPeriodo.forEach(p => {
+            const f = getPedidoFecha(p);
+            const fechaStr = f ? f.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+            const textoPago = p.estadoPago === 'SENADO' ? `SEÑADO ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
+            const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
+            itemsDetalle.push({ fecha: f || new Date(0), type: 'pedido', fechaStr, badgeClass, textoPago, descripcion: `${p.cantidad || 1}x ${p.nombreProducto || 'Pedido personalizado'} — ${p.cliente}`, monto: parseFloat(p.totalPedido || 0), montoStr: `$${parseFloat(p.totalPedido || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}` });
+        });
+        comprasPeriodo.forEach(c => {
+            const fc = new Date(c.fechaCompra + 'T00:00:00');
+            const fechaStr = fc.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            itemsDetalle.push({ fecha: fc, type: 'gasto', fechaStr, badgeClass: '', textoPago: '', descripcion: c.descripcion || 'Compra de insumos', monto: -parseFloat(c.montoTotal || 0), montoStr: `-$${parseFloat(c.montoTotal || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}` });
         });
 
-        if (chartProduccion) chartProduccion.destroy();
-        chartProduccion = new Chart(ctxProd, {
-            type: 'bar',
-            data: {
-                labels: ['Pendiente', 'En Prod.', 'P. Entrega', 'Entregado'],
-                datasets: [{ label: 'Pedidos', data: [pending, prod, entrega, entregado], backgroundColor: '#3b82f6', borderRadius: 4 }]
-            },
-            options: { scales: { y: { beginAtZero: true, ticks: { color: '#f4f4f5' } }, x: { ticks: { color: '#f4f4f5' } } }, plugins: { legend: { labels: { color: '#f4f4f5' } } } }
+        itemsDetalle.sort((a, b) => b.fecha - a.fecha);
+
+        if (itemsDetalle.length === 0) {
+            detalleBody.innerHTML = `<tr><td colspan="5" class="sin-resultados">Sin movimientos en este período.</td></tr>`;
+            return;
+        }
+
+        itemsDetalle.forEach(item => {
+            const row = document.createElement('tr');
+            if (item.type === 'pedido') {
+                row.innerHTML = `
+                    <td>${item.fechaStr}</td>
+                    <td><span class="est-tipo-badge est-tipo-venta">💰 Venta</span></td>
+                    <td>${item.descripcion}</td>
+                    <td><span class="badge ${item.badgeClass}">${item.textoPago}</span></td>
+                    <td style="color:var(--primary);font-weight:700;">${item.montoStr}</td>
+                `;
+            } else {
+                row.innerHTML = `
+                    <td>${item.fechaStr}</td>
+                    <td><span class="est-tipo-badge est-tipo-gasto">🧾 Gasto</span></td>
+                    <td>${item.descripcion}</td>
+                    <td>—</td>
+                    <td style="color:var(--danger);font-weight:700;">${item.montoStr}</td>
+                `;
+            }
+            detalleBody.appendChild(row);
         });
     }
+
+    function setupEstadisticas() {
+        const tabs = document.querySelectorAll('.periodo-tab');
+        const customRange = document.getElementById('periodo-custom-range');
+        const btnAplicar = document.getElementById('btn-aplicar-periodo');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                estadisticasPeriodo = tab.getAttribute('data-periodo');
+
+                if (estadisticasPeriodo === 'custom') {
+                    if (customRange) customRange.classList.remove('hidden');
+                } else {
+                    if (customRange) customRange.classList.add('hidden');
+                    renderEstadisticas();
+                }
+            });
+        });
+
+        if (btnAplicar) {
+            btnAplicar.addEventListener('click', () => {
+                const desde = document.getElementById('periodo-desde');
+                const hasta = document.getElementById('periodo-hasta');
+                if (desde && desde.value) estadisticasDesde = desde.value;
+                if (hasta && hasta.value) estadisticasHasta = hasta.value;
+                renderEstadisticas();
+            });
+        }
+    }
+
+    setupEstadisticas();
 
     let stompClient = null;
     function connectWebSocket() {
