@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function calcularPrioridad(pedido) {
         if (pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR') return 'borrador';
+        if (pedido.estadoProduccion === 'ENTREGADO') return 'normal'; // entregados no son urgentes
         const dias = diasHastaEntrega(pedido);
         if (dias === null) return 'normal';
         if (dias <= 2) return 'urgente';
@@ -891,6 +892,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Excluir ENTREGADOS y BORRADORES del kanban
         const activos = pedidos.filter(p => p.estadoProduccion !== 'ENTREGADO' && p.estadoProduccion !== 'BORRADOR' && !p.esBorrador);
+
+        // --- Actualizar contadores del header (siempre sobre el total, no sobre los filtrados) ---
+        const elCountPend = document.getElementById('count-pendiente');
+        const elCountProg = document.getElementById('count-progreso');
+        const elCountEntr = document.getElementById('count-entrega');
+        if (elCountPend) elCountPend.textContent = activos.filter(p => p.estadoProduccion === 'PENDIENTE_HACER').length;
+        if (elCountProg) elCountProg.textContent = activos.filter(p => p.estadoProduccion === 'EN_PRODUCCION').length;
+        if (elCountEntr) elCountEntr.textContent = activos.filter(p => p.estadoProduccion === 'PENDIENTE_ENTREGA').length;
+
         const filtrados = aplicarFiltroKanban(activos);
 
         if (filtrados.length === 0) {
@@ -1456,7 +1466,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 cliente: document.getElementById('bor-cliente').value,
                 nombreProducto: document.getElementById('bor-producto').value,
                 cantidad: parseInt(document.getElementById('bor-cantidad').value) || 1,
-                fechaEntrega: document.getElementById('bor-entrega').value || null,
+                // Si no ingresó fecha de entrega, usamos hoy para no violar el NOT NULL de la DB.
+                // En pantalla se muestra '-' cuando es borrador sin fecha real.
+                fechaEntrega: document.getElementById('bor-entrega').value || new Date().toISOString().split('T')[0],
                 detalles: document.getElementById('bor-detalles').value || '',
                 totalPedido: 0,
                 estadoPago: 'NO_PAGADO',

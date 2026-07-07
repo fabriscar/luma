@@ -90,15 +90,15 @@
 
                 <div class="kanban-board">
                     <div class="kanban-column" id="col-pendiente">
-                        <h3>Pendiente / En Preparación</h3>
+                        <h3>Pendiente / En Preparación <span class="kanban-count" id="count-pendiente">0</span></h3>
                         <div class="kanban-cards" id="cards-pendiente"></div>
                     </div>
                     <div class="kanban-column" id="col-progreso">
-                        <h3>En Producción ⏳</h3>
+                        <h3>En Producción ⏳ <span class="kanban-count kanban-count-prod" id="count-progreso">0</span></h3>
                         <div class="kanban-cards" id="cards-progreso"></div>
                     </div>
                     <div class="kanban-column" id="col-entrega">
-                        <h3>Pendiente Entrega 📦</h3>
+                        <h3>Pendiente Entrega 📦 <span class="kanban-count kanban-count-entrega" id="count-entrega">0</span></h3>
                         <div class="kanban-cards" id="cards-entrega"></div>
                     </div>
                 </div>
@@ -616,6 +616,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

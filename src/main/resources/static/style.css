@@ -1463,4 +1463,35 @@ input[type="file"]::file-selector-button:hover {
     padding: 0.5rem 1.4rem;
     font-size: 0.9rem;
 }
+
+/* ==========================================
+   CONTADORES DEL KANBAN
+   ========================================== */
+.kanban-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background-color: rgba(161, 161, 170, 0.2);
+    color: #a1a1aa;
+    border: 1px solid rgba(161, 161, 170, 0.2);
+    vertical-align: middle;
+    margin-left: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+.kanban-count-prod {
+    background-color: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+.kanban-count-entrega {
+    background-color: rgba(59, 130, 246, 0.18);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.3);
+}
 

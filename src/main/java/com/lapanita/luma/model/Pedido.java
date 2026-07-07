@@ -51,7 +51,7 @@ public class Pedido {
     @Column(name = "detalles", length = 500)
     private String detalles;
 
-    @Column(name = "es_borrador", nullable = false)
+    @Column(name = "es_borrador", columnDefinition = "boolean default false")
     private boolean esBorrador = false;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
