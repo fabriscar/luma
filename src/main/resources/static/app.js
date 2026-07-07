@@ -138,8 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calcularPrioridad(pedido) {
-        if (pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR') return 'borrador';
-        if (pedido.estadoProduccion === 'ENTREGADO') return 'normal'; // entregados no son urgentes
+        if (pedido.esBorrador) return 'borrador';
+        if (pedido.estadoProduccion === 'ENTREGADO') return 'normal';
         const dias = diasHastaEntrega(pedido);
         if (dias === null) return 'normal';
         if (dias <= 2) return 'urgente';
@@ -148,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function matchPrioridad(pedido, filtro) {
-        if (filtro === 'borrador') return pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR';
-        if (pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR') return false;
+        if (filtro === 'borrador') return pedido.esBorrador;
+        if (pedido.esBorrador) return false;
         return calcularPrioridad(pedido) === filtro;
     }
 
@@ -891,7 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cardsEntrega.innerHTML = '';
 
         // Excluir ENTREGADOS y BORRADORES del kanban
-        const activos = pedidos.filter(p => p.estadoProduccion !== 'ENTREGADO' && p.estadoProduccion !== 'BORRADOR' && !p.esBorrador);
+        const activos = pedidos.filter(p => p.estadoProduccion !== 'ENTREGADO' && !p.esBorrador);
 
         // --- Actualizar contadores del header (siempre sobre el total, no sobre los filtrados) ---
         const elCountPend = document.getElementById('count-pendiente');
@@ -1466,14 +1466,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 cliente: document.getElementById('bor-cliente').value,
                 nombreProducto: document.getElementById('bor-producto').value,
                 cantidad: parseInt(document.getElementById('bor-cantidad').value) || 1,
-                // Si no ingresó fecha de entrega, usamos hoy para no violar el NOT NULL de la DB.
-                // En pantalla se muestra '-' cuando es borrador sin fecha real.
                 fechaEntrega: document.getElementById('bor-entrega').value || new Date().toISOString().split('T')[0],
                 detalles: document.getElementById('bor-detalles').value || '',
                 totalPedido: 0,
                 estadoPago: 'NO_PAGADO',
                 montoSena: 0,
-                estadoProduccion: 'BORRADOR',
+                estadoProduccion: 'PENDIENTE_HACER', // valor válido en la DB; esBorrador=true lo distingue
                 esBorrador: true,
                 filamentos: []
             };
