@@ -1295,4 +1295,172 @@ input[type="file"]::file-selector-button:hover {
     color: var(--danger);
     border: 1px solid rgba(239, 68, 68, 0.25);
 }
+
+/* ==========================================
+   MEJORAS: BORRADORES, PRIORIDAD, TIEMPO
+   ========================================== */
+
+/* Badge Borrador */
+.badge-borrador {
+    background-color: rgba(161, 161, 170, 0.15);
+    color: #a1a1aa;
+    border: 1.5px dashed #52525b;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+}
+
+/* Badges de Urgencia */
+.badge-urgencia {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+.urgencia-alta {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.urgencia-media {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Tiempo transcurrido (tabla y kanban) */
+.card-tiempo {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* Días hasta entrega en kanban */
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    min-height: 20px;
+}
+.card-dias {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background-color: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.card-dias.urgente {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    animation: pulse-urgente 2s ease-in-out infinite;
+}
+.card-dias.vencido {
+    background-color: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    font-weight: 700;
+}
+@keyframes pulse-urgente {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Botón de Borrador Rápido */
+.btn-borrador-rapido {
+    background-color: transparent;
+    border: 1.5px dashed #52525b;
+    color: #a1a1aa;
+    border-radius: var(--radius);
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-borrador-rapido:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background-color: var(--primary-glow);
+}
+
+/* Modal de Borrador Rápido */
+.modal-borrador-box {
+    max-width: 480px;
+    width: 90%;
+    padding: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #3f3f46;
+}
+.modal-borrador-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.4rem;
+    background-color: rgba(253, 181, 8, 0.08);
+    border-bottom: 1px solid #3f3f46;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+.btn-cerrar-modal {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+    line-height: 1;
+    width: auto;
+}
+.btn-cerrar-modal:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+.modal-borrador-desc {
+    padding: 0.9rem 1.4rem 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    border-bottom: 1px solid #27272a;
+}
+#form-borrador {
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+#form-borrador .form-group {
+    margin-bottom: 0.8rem;
+}
+.modal-borrador-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 0.5rem;
+}
+.modal-borrador-footer .btn-secondary {
+    width: auto;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.9rem;
+}
+.modal-borrador-footer .btn-primary {
+    width: auto;
+    padding: 0.5rem 1.4rem;
+    font-size: 0.9rem;
+}
 

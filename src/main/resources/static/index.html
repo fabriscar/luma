@@ -76,6 +76,15 @@
                         <span class="filter-icon">🔍</span>
                         <input type="text" id="filtro-kan-cliente" placeholder="Buscar por cliente...">
                     </div>
+                    <div class="filter-group">
+                        <label>Prioridad</label>
+                        <select id="filtro-kan-prioridad">
+                            <option value="">Todas</option>
+                            <option value="urgente">🔴 Urgente (&le;2 días)</option>
+                            <option value="proximo">🟡 Próximo (3-7 días)</option>
+                            <option value="normal">🟢 Normal (&gt;7 días)</option>
+                        </select>
+                    </div>
                     <button id="btn-limpiar-kan" class="btn-limpiar">✕ Limpiar</button>
                 </div>
 
@@ -146,6 +155,7 @@
                         <input type="number" step="0.01" id="venta-monto-sena">
                     </div>
                     <button type="submit" id="btn-submit-venta" class="btn-primary btn-inline">Crear Pedido</button>
+                    <button type="button" id="btn-borrador-rapido" class="btn-borrador-rapido btn-inline">⚡ Borrador Rápido</button>
                 </form>
 
                 <h2>Historial y Estados Financieros</h2>
@@ -169,10 +179,21 @@
                         <label>Estado de producción</label>
                         <select id="filtro-ven-produccion">
                             <option value="">Todos</option>
+                            <option value="BORRADOR">📝 Borradores</option>
                             <option value="PENDIENTE_HACER">Pendiente</option>
                             <option value="EN_PRODUCCION">En Producción</option>
                             <option value="PENDIENTE_ENTREGA">P. Entrega</option>
                             <option value="ENTREGADO">Entregado</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Prioridad</label>
+                        <select id="filtro-ven-prioridad">
+                            <option value="">Todas</option>
+                            <option value="urgente">🔴 Urgente (&le;2 días)</option>
+                            <option value="proximo">🟡 Próximo (3-7 días)</option>
+                            <option value="normal">🟢 Normal (&gt;7 días)</option>
+                            <option value="borrador">📝 Borradores</option>
                         </select>
                     </div>
                     <span id="contador-ven" class="filtro-contador"></span>
@@ -186,6 +207,7 @@
                                 <th>Cliente</th>
                                 <th>Producto / Cant.</th>
                                 <th>Entrega</th>
+                                <th>Hace cuánto</th>
                                 <th>Total</th>
                                 <th>Pago</th>
                                 <th>Producción</th>
@@ -545,6 +567,43 @@
         </div>
     </div>
 
+    <!-- Mini-modal de Borrador Rápido -->
+    <div id="modal-borrador" class="confirm-overlay hidden">
+        <div class="confirm-box modal-borrador-box">
+            <div class="modal-borrador-header">
+                <span>⚡ Borrador Rápido</span>
+                <button type="button" id="btn-cerrar-borrador" class="btn-cerrar-modal">✕</button>
+            </div>
+            <p class="modal-borrador-desc">Guardá un pedido en estado borrador sin cotizar ni descontar stock. Lo podés confirmar después.</p>
+            <form id="form-borrador">
+                <div class="form-group">
+                    <label for="bor-cliente">Cliente *</label>
+                    <input type="text" id="bor-cliente" required placeholder="Nombre del cliente">
+                </div>
+                <div class="form-group">
+                    <label for="bor-producto">Producto / Descripción *</label>
+                    <input type="text" id="bor-producto" required placeholder="Ej: Figura personalizada, soporte...">
+                </div>
+                <div class="form-group">
+                    <label for="bor-cantidad">Cantidad</label>
+                    <input type="number" id="bor-cantidad" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="bor-entrega">Fecha de Entrega (opcional)</label>
+                    <input type="date" id="bor-entrega">
+                </div>
+                <div class="form-group">
+                    <label for="bor-detalles">Detalles / Notas</label>
+                    <input type="text" id="bor-detalles" placeholder="Medidas, color estimado, aclaraciones...">
+                </div>
+                <div class="modal-borrador-footer">
+                    <button type="button" id="btn-cancelar-borrador" class="btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-guardar-borrador" class="btn-primary">💾 Guardar Borrador</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Contenedor de toasts (notificaciones) -->
     <div id="toast-container" aria-live="polite"></div>
 
@@ -557,6 +616,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

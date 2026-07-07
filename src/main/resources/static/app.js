@@ -59,8 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ESTADO DE FILTROS ---
     let filtroProductos   = { nombre: '', pesoMax: '', precioMax: '' };
     let filtroFilamentos  = { buscar: '', tipo: '' };
-    let filtroPedidos     = { cliente: '', estadoPago: '', estadoProduccion: '' };
-    let filtroKanban      = { cliente: '' };
+    let filtroPedidos     = { cliente: '', estadoPago: '', estadoProduccion: '', prioridad: '' };
+    let filtroKanban      = { cliente: '', prioridad: '' };
 
     // --- ESTADO DE EDICIÓN ---
     let editProductoId = null;
@@ -96,13 +96,67 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchCliente = !filtroPedidos.cliente        || p.cliente.toLowerCase().includes(filtroPedidos.cliente.toLowerCase());
             const matchPago    = !filtroPedidos.estadoPago     || p.estadoPago === filtroPedidos.estadoPago;
             const matchProd    = !filtroPedidos.estadoProduccion || p.estadoProduccion === filtroPedidos.estadoProduccion;
-            return matchCliente && matchPago && matchProd;
+            const matchPrior   = !filtroPedidos.prioridad      || matchPrioridad(p, filtroPedidos.prioridad);
+            return matchCliente && matchPago && matchProd && matchPrior;
         });
     }
 
     function aplicarFiltroKanban(lista) {
-        if (!filtroKanban.cliente) return lista;
-        return lista.filter(p => p.cliente.toLowerCase().includes(filtroKanban.cliente.toLowerCase()));
+        return lista.filter(p => {
+            const matchCliente = !filtroKanban.cliente || p.cliente.toLowerCase().includes(filtroKanban.cliente.toLowerCase());
+            const matchPrior   = !filtroKanban.prioridad || matchPrioridad(p, filtroKanban.prioridad);
+            return matchCliente && matchPrior;
+        });
+    }
+
+    // --- FUNCIONES DE TIEMPO Y PRIORIDAD ---
+    function tiempoRelativo(fechaISO) {
+        if (!fechaISO) return '';
+        const ahora = new Date();
+        const fecha = new Date(fechaISO);
+        const diffMs = ahora - fecha;
+        const diffMin = Math.floor(diffMs / 60000);
+        const diffH   = Math.floor(diffMs / 3600000);
+        const diffD   = Math.floor(diffMs / 86400000);
+
+        if (diffMin < 1)  return 'ahora mismo';
+        if (diffMin < 60) return `hace ${diffMin} min`;
+        if (diffH < 24)   return `hace ${diffH} h`;
+        if (diffD === 1)   return 'ayer';
+        if (diffD < 7)    return `hace ${diffD} días`;
+        if (diffD < 30)   return `hace ${Math.floor(diffD/7)} sem.`;
+        if (diffD < 365)  return `hace ${Math.floor(diffD/30)} meses`;
+        return `hace ${Math.floor(diffD/365)} año(s)`;
+    }
+
+    function diasHastaEntrega(pedido) {
+        if (!pedido.fechaEntrega) return null;
+        const hoy = new Date();
+        hoy.setHours(0,0,0,0);
+        const entrega = new Date(pedido.fechaEntrega + 'T00:00:00');
+        return Math.ceil((entrega - hoy) / 86400000);
+    }
+
+    function calcularPrioridad(pedido) {
+        if (pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR') return 'borrador';
+        const dias = diasHastaEntrega(pedido);
+        if (dias === null) return 'normal';
+        if (dias <= 2) return 'urgente';
+        if (dias <= 7) return 'proximo';
+        return 'normal';
+    }
+
+    function matchPrioridad(pedido, filtro) {
+        if (filtro === 'borrador') return pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR';
+        if (pedido.esBorrador || pedido.estadoProduccion === 'BORRADOR') return false;
+        return calcularPrioridad(pedido) === filtro;
+    }
+
+    function badgePrioridad(pedido) {
+        const p = calcularPrioridad(pedido);
+        if (p === 'urgente') return '<span class="badge-urgencia urgencia-alta">🔴 Urgente</span>';
+        if (p === 'proximo') return '<span class="badge-urgencia urgencia-media">🟡 Próximo</span>';
+        return '';
     }
 
     // Muestra un contador de resultados
@@ -835,11 +889,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cardsProgreso.innerHTML = '';
         cardsEntrega.innerHTML = '';
 
-        const filtrados = aplicarFiltroKanban(pedidos).filter(p => p.estadoProduccion !== 'ENTREGADO');
+        // Excluir ENTREGADOS y BORRADORES del kanban
+        const activos = pedidos.filter(p => p.estadoProduccion !== 'ENTREGADO' && p.estadoProduccion !== 'BORRADOR' && !p.esBorrador);
+        const filtrados = aplicarFiltroKanban(activos);
 
         if (filtrados.length === 0) {
-            const msg = filtroKanban.cliente
-                ? `<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Sin coincidencias para "<strong>${filtroKanban.cliente}</strong>"</p>`
+            const msg = (filtroKanban.cliente || filtroKanban.prioridad)
+                ? `<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Sin coincidencias para los filtros activos</p>`
                 : '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Sin pedidos activos</p>';
             cardsPendiente.innerHTML = msg;
             return;
@@ -876,17 +932,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 listaProductos += `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -5px; margin-bottom: 10px; padding-left: 5px;">💬 ${pedido.detalles}</div>`;
             }
 
+            const tiempoCreadoStr = tiempoRelativo(pedido.fechaPedido);
+            const prioridadBadge = badgePrioridad(pedido);
+            const diasStr = diasHastaEntrega(pedido);
+            const diasLabel = diasStr !== null
+                ? (diasStr < 0 ? `<span class="card-dias vencido">⚠️ Vencido ${Math.abs(diasStr)}d</span>` : (diasStr <= 2 ? `<span class="card-dias urgente">${diasStr}d para entrega</span>` : `<span class="card-dias">${diasStr}d para entrega</span>`))
+                : '';
+
             card.innerHTML = `
                 <div class="card-header">
                     <span class="card-title">${pedido.cliente}</span>
                     <span class="badge ${badgeClass}">${textoPago}</span>
                 </div>
                 <div class="card-body">
+                    <div class="card-meta">${prioridadBadge} ${diasLabel}</div>
                     <p><strong>Entrega:</strong> ${pedido.fechaEntrega}</p>
                     ${listaProductos}
                 </div>
                 <div class="card-footer">
-                    <span class="card-price">$${pedido.totalPedido}</span>
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span class="card-price">$${pedido.totalPedido}</span>
+                        <span class="card-tiempo">⏳ ${tiempoCreadoStr}</span>
+                    </div>
                     <div class="card-actions">
                         ${botonAccion}
                         ${botonPagar}
@@ -946,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = pedidos.length === 0
                 ? 'No hay pedidos registrados.'
                 : 'Ningún pedido coincide con los filtros aplicados.';
-            tablaVentasBody.innerHTML = `<tr><td colspan="7" class="sin-resultados">${msg}</td></tr>`;
+            tablaVentasBody.innerHTML = `<tr><td colspan="8" class="sin-resultados">${msg}</td></tr>`;
             return;
         }
 
@@ -962,13 +1029,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<strong>${p.cantidad || 1}x</strong> ${p.nombreProducto}<br><small style="color:var(--text-muted)">${p.materialColor || '-'}</small>${detallesHTML}`
                 : `<span style="color:var(--text-muted);font-style:italic">—</span>${detallesHTML}`;
 
+            const tiempoCreadoStr = tiempoRelativo(p.fechaPedido);
+
+            // Badge de borrador o de prioridad
+            let estadoBadge = '';
+            if (p.esBorrador || p.estadoProduccion === 'BORRADOR') {
+                estadoBadge = '<span class="badge badge-borrador">📝 BORRADOR</span>';
+            } else {
+                estadoBadge = `<span class="badge" style="background-color:var(--bg-input)">${estadoProdLabel}</span>${badgePrioridad(p)}`;
+            }
+
             row.innerHTML = `
                 <td><strong>${p.cliente}</strong></td>
                 <td>${productoTexto}</td>
-                <td>${p.fechaEntrega || '-'}</td>
+                <td>${p.fechaEntrega || '<span style="color:var(--text-muted)">-</span>'}</td>
+                <td><span class="card-tiempo">⏳ ${tiempoCreadoStr}</span></td>
                 <td>$${p.totalPedido}</td>
                 <td><span class="badge ${badgeClass}">${textoPago}</span></td>
-                <td><span class="badge" style="background-color:var(--bg-input)">${estadoProdLabel}</span></td>
+                <td>${estadoBadge}</td>
                 <td class="td-actions">
                     <button class="btn-warning btn-edit-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">✏️ Editar</button>
                     <button class="btn-danger btn-del-venta" data-id="${p.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
@@ -1282,10 +1360,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         filamento: { id: filId },
                         gramosUsados: gramos
                     });
-                    const optText = sel.options[sel.selectedIndex].text.split(' - ')[0]; // Tomar el nombre base
+                    const optText = sel.options[sel.selectedIndex].text.split(' - ')[0];
                     nombresMateriales.push(optText);
                 }
             });
+
+            // Determinar si el pedido que se está editando era un borrador
+            const pedidoOrig = editPedidoId ? pedidosCargados.find(p => p.id === editPedidoId) : null;
+            const eraBorrador = pedidoOrig ? pedidoOrig.esBorrador : false;
 
             const payload = {
                 cliente: document.getElementById('venta-cliente').value,
@@ -1293,7 +1375,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalPedido: parseFloat(totalCalculado),
                 estadoPago: selectEstadoPago.value,
                 montoSena: selectEstadoPago.value === 'SENADO' ? parseFloat(inputMontoSena.value) || 0 : 0,
-                estadoProduccion: 'PENDIENTE_HACER',
+                estadoProduccion: eraBorrador ? 'PENDIENTE_HACER' : 'PENDIENTE_HACER',
+                esBorrador: false, // Al guardar desde el form completo siempre es pedido real
                 nombreProducto: nombreProdFinal,
                 cantidad: cantidad,
                 materialColor: nombresMateriales.join(' + '),
@@ -1307,9 +1390,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (editPedidoId) {
                     url = `${API_BASE}/pedidos/${editPedidoId}`;
                     method = 'PUT';
-                    // Conservamos el estado de produccion anterior en modo edicion
-                    const pedidoOrig = pedidosCargados.find(p => p.id === editPedidoId);
-                    if (pedidoOrig) payload.estadoProduccion = pedidoOrig.estadoProduccion;
+                    // Conservamos el estado de produccion anterior en modo edicion (a menos que sea borrador confirmado)
+                    if (pedidoOrig && !eraBorrador) payload.estadoProduccion = pedidoOrig.estadoProduccion;
                 }
 
                 const res = await fetchAuth(url, {
@@ -1323,13 +1405,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 cancelarEdicionPedido();
-                mostrarToast(editPedidoId ? "Pedido actualizado." : `Pedido para ${payload.cliente} creado. Total: $${totalCalculado}`);
+                const mensajeToast = eraBorrador
+                    ? `Borrador confirmado como pedido real para ${payload.cliente}.`
+                    : (editPedidoId ? "Pedido actualizado." : `Pedido para ${payload.cliente} creado. Total: $${totalCalculado}`);
+                mostrarToast(mensajeToast);
                 cargarPedidos();
             } catch (err) {
                 mostrarToast(err.message || "Error al guardar el pedido.", 'error');
             } finally {
                 btnSubmit.disabled = false;
                 btnSubmit.textContent = editPedidoId ? 'Actualizar Pedido' : 'Crear Pedido';
+            }
+        });
+    }
+
+    // =======================================================
+    // --- BORRADOR RÁPIDO ---
+    // =======================================================
+    const modalBorrador = document.getElementById('modal-borrador');
+    const formBorrador  = document.getElementById('form-borrador');
+    const btnBorradorRapido = document.getElementById('btn-borrador-rapido');
+
+    function abrirModalBorrador() {
+        if (formBorrador) formBorrador.reset();
+        if (modalBorrador) modalBorrador.classList.remove('hidden');
+    }
+    function cerrarModalBorrador() {
+        if (modalBorrador) modalBorrador.classList.add('hidden');
+    }
+
+    if (btnBorradorRapido) {
+        btnBorradorRapido.addEventListener('click', abrirModalBorrador);
+    }
+    const btnCerrarBorrador   = document.getElementById('btn-cerrar-borrador');
+    const btnCancelarBorrador = document.getElementById('btn-cancelar-borrador');
+    if (btnCerrarBorrador)   btnCerrarBorrador.addEventListener('click', cerrarModalBorrador);
+    if (btnCancelarBorrador) btnCancelarBorrador.addEventListener('click', cerrarModalBorrador);
+    if (modalBorrador) {
+        modalBorrador.addEventListener('click', (e) => { if (e.target === modalBorrador) cerrarModalBorrador(); });
+    }
+
+    if (formBorrador) {
+        formBorrador.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btnGuardar = document.getElementById('btn-guardar-borrador');
+            btnGuardar.disabled = true;
+            btnGuardar.textContent = 'Guardando...';
+
+            const payload = {
+                cliente: document.getElementById('bor-cliente').value,
+                nombreProducto: document.getElementById('bor-producto').value,
+                cantidad: parseInt(document.getElementById('bor-cantidad').value) || 1,
+                fechaEntrega: document.getElementById('bor-entrega').value || null,
+                detalles: document.getElementById('bor-detalles').value || '',
+                totalPedido: 0,
+                estadoPago: 'NO_PAGADO',
+                montoSena: 0,
+                estadoProduccion: 'BORRADOR',
+                esBorrador: true,
+                filamentos: []
+            };
+
+            try {
+                const res = await fetchAuth(`${API_BASE}/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `Error ${res.status}`);
+                }
+                cerrarModalBorrador();
+                mostrarToast(`Borrador guardado para ${payload.cliente}. Podés completarlo cuando esté listo.`);
+                cargarPedidos();
+            } catch (err) {
+                mostrarToast(err.message || 'Error al guardar el borrador.', 'error');
+            } finally {
+                btnGuardar.disabled = false;
+                btnGuardar.textContent = '💾 Guardar Borrador';
             }
         });
     }
@@ -1392,11 +1546,16 @@ document.addEventListener('DOMContentLoaded', () => {
             filtroPedidos.estadoProduccion = el('filtro-ven-produccion').value;
             actualizarTablaVentas(pedidosCargados);
         });
+        onChange('filtro-ven-prioridad', () => {
+            filtroPedidos.prioridad = el('filtro-ven-prioridad').value;
+            actualizarTablaVentas(pedidosCargados);
+        });
         onClick('btn-limpiar-ven', () => {
-            filtroPedidos = { cliente: '', estadoPago: '', estadoProduccion: '' };
+            filtroPedidos = { cliente: '', estadoPago: '', estadoProduccion: '', prioridad: '' };
             ['filtro-ven-cliente'].forEach(id => { if (el(id)) el(id).value = ''; });
             if (el('filtro-ven-pago')) el('filtro-ven-pago').value = '';
             if (el('filtro-ven-produccion')) el('filtro-ven-produccion').value = '';
+            if (el('filtro-ven-prioridad')) el('filtro-ven-prioridad').value = '';
             actualizarTablaVentas(pedidosCargados);
         });
 
@@ -1405,9 +1564,14 @@ document.addEventListener('DOMContentLoaded', () => {
             filtroKanban.cliente = el('filtro-kan-cliente').value;
             actualizarKanban(pedidosCargados);
         });
+        onChange('filtro-kan-prioridad', () => {
+            filtroKanban.prioridad = el('filtro-kan-prioridad').value;
+            actualizarKanban(pedidosCargados);
+        });
         onClick('btn-limpiar-kan', () => {
-            filtroKanban = { cliente: '' };
+            filtroKanban = { cliente: '', prioridad: '' };
             if (el('filtro-kan-cliente')) el('filtro-kan-cliente').value = '';
+            if (el('filtro-kan-prioridad')) el('filtro-kan-prioridad').value = '';
             actualizarKanban(pedidosCargados);
         });
 

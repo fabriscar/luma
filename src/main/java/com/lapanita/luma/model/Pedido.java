@@ -22,7 +22,7 @@ public class Pedido {
     @Column(name = "fecha_pedido", insertable = false, updatable = false)
     private LocalDateTime fechaPedido;
 
-    @Column(name = "fecha_entrega", nullable = false)
+    @Column(name = "fecha_entrega", nullable = true)
     private java.time.LocalDate fechaEntrega;
 
     @Column(name = "total_pedido", nullable = false, precision = 10, scale = 2)
@@ -50,6 +50,9 @@ public class Pedido {
 
     @Column(name = "detalles", length = 500)
     private String detalles;
+
+    @Column(name = "es_borrador", nullable = false)
+    private boolean esBorrador = false;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
@@ -101,6 +104,9 @@ public class Pedido {
 
     public String getDetalles() { return detalles; }
     public void setDetalles(String detalles) { this.detalles = detalles; }
+
+    public boolean isEsBorrador() { return esBorrador; }
+    public void setEsBorrador(boolean esBorrador) { this.esBorrador = esBorrador; }
 
     public List<PedidoFilamento> getFilamentos() { return filamentos; }
     public void setFilamentos(List<PedidoFilamento> filamentos) { this.filamentos = filamentos; }

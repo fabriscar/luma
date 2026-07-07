@@ -35,7 +35,8 @@ public class PedidoService {
         if (pedido.getFilamentos() != null) {
             for (PedidoFilamento pf : pedido.getFilamentos()) {
                 pf.setPedido(pedido);
-                if (pf.getFilamento() != null && pf.getFilamento().getId() != null) {
+                // Los borradores NO descuentan stock hasta ser confirmados
+                if (!pedido.isEsBorrador() && pf.getFilamento() != null && pf.getFilamento().getId() != null) {
                     Filamento f = filamentoRepository.findById(pf.getFilamento().getId())
                             .orElseThrow(() -> new RuntimeException("Filamento no encontrado"));
                     f.setCantidadGramos(f.getCantidadGramos() - pf.getGramosUsados());
@@ -49,11 +50,13 @@ public class PedidoService {
     @Transactional
     public Pedido actualizar(Integer id, Pedido pedidoActualizado) {
         Pedido pedido = obtenerPorId(id);
+        boolean eraBorrador = pedido.isEsBorrador();
+        boolean seraeBorrador = pedidoActualizado.isEsBorrador();
 
-        // 1. Restaurar stock de los filamentos anteriores
+        // 1. Restaurar stock de los filamentos anteriores (solo si el pedido anterior NO era borrador)
         if (pedido.getFilamentos() != null) {
             for (PedidoFilamento pf : pedido.getFilamentos()) {
-                if (pf.getFilamento() != null && pf.getFilamento().getId() != null) {
+                if (!eraBorrador && pf.getFilamento() != null && pf.getFilamento().getId() != null) {
                     Filamento f = filamentoRepository.findById(pf.getFilamento().getId()).orElse(null);
                     if (f != null) {
                         f.setCantidadGramos(f.getCantidadGramos() + pf.getGramosUsados());
@@ -64,11 +67,11 @@ public class PedidoService {
             pedido.getFilamentos().clear();
         }
 
-        // 2. Descontar stock de los nuevos filamentos
+        // 2. Descontar stock de los nuevos filamentos (solo si el pedido actualizado NO es borrador)
         if (pedidoActualizado.getFilamentos() != null) {
             for (PedidoFilamento pf : pedidoActualizado.getFilamentos()) {
                 pf.setPedido(pedido);
-                if (pf.getFilamento() != null && pf.getFilamento().getId() != null) {
+                if (!seraeBorrador && pf.getFilamento() != null && pf.getFilamento().getId() != null) {
                     Filamento f = filamentoRepository.findById(pf.getFilamento().getId())
                             .orElseThrow(() -> new RuntimeException("Filamento no encontrado"));
                     f.setCantidadGramos(f.getCantidadGramos() - pf.getGramosUsados());
@@ -88,6 +91,13 @@ public class PedidoService {
         pedido.setCantidad(pedidoActualizado.getCantidad());
         pedido.setMaterialColor(pedidoActualizado.getMaterialColor());
         pedido.setDetalles(pedidoActualizado.getDetalles());
+        pedido.setEsBorrador(seraeBorrador);
+        // Si el pedido antes era borrador y ahora se confirma, actualizar estado de producción
+        if (eraBorrador && !seraeBorrador && pedidoActualizado.getEstadoProduccion() != null) {
+            pedido.setEstadoProduccion(pedidoActualizado.getEstadoProduccion());
+        } else if (!eraBorrador) {
+            pedido.setEstadoProduccion(pedidoActualizado.getEstadoProduccion());
+        }
 
         return pedidoRepository.save(pedido);
     }
@@ -109,7 +119,8 @@ public class PedidoService {
     @Transactional
     public void eliminar(Integer id) {
         Pedido pedido = obtenerPorId(id);
-        if (pedido.getFilamentos() != null) {
+        // Los borradores no habían descontado stock, así que no hay nada que restaurar
+        if (!pedido.isEsBorrador() && pedido.getFilamentos() != null) {
             for (PedidoFilamento pf : pedido.getFilamentos()) {
                 if (pf.getFilamento() != null && pf.getFilamento().getId() != null) {
                     Filamento f = filamentoRepository.findById(pf.getFilamento().getId()).orElse(null);
