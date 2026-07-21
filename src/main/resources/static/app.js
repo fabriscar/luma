@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- VARIABLES DE ESTADO LOCAL ---
     let productosCargados = [];
     let filamentosCargados = [];
+    let filamentosActivos = [];   // Solo los activos (para selectores de pedido/compra)
     let pedidosCargados = [];   // Guardamos todos los pedidos para filtrar sin re-fetch
     let comprasCargadas = [];
     let filtroHistorial = { cliente: '', estadoPago: '' };
@@ -294,7 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const optgroup = document.getElementById('compra-optgroup-existentes');
             if (optgroup) {
                 optgroup.innerHTML = '';
-                filamentosCargados.forEach(f => {
+                // Solo mostrar activos en el selector de compras
+                filamentosActivos.forEach(f => {
                     const opt = document.createElement('option');
                     opt.value = f.id;
                     opt.textContent = `${f.tipo} ${f.marca} (${f.color})`;
@@ -315,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.required = true;
         sel.style.flex = '1';
         sel.innerHTML = '<option value="">-- Elegir Filamento --</option>';
-        filamentosCargados.forEach(f => {
+        // Solo mostrar filamentos activos al crear/editar un pedido
+        filamentosActivos.forEach(f => {
             const opt = document.createElement('option');
             opt.value = f.id;
             opt.textContent = `${f.tipo} ${f.marca} (${f.color}) - Stock: ${f.cantidadGramos}g`;
@@ -532,9 +535,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarFilamentos() {
         mostrarSpinner(tablaFilamentosBody, 6);
         try {
-            const res = await fetchAuth(`${API_BASE}/filamentos`);
-            if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
-            filamentosCargados = await res.json();
+            const [resTodos, resActivos] = await Promise.all([
+                fetchAuth(`${API_BASE}/filamentos`),
+                fetchAuth(`${API_BASE}/filamentos/activos`)
+            ]);
+            if (!resTodos.ok) throw new Error(`Error del servidor: ${resTodos.status}`);
+            filamentosCargados = await resTodos.json();
+            filamentosActivos = resActivos.ok ? await resActivos.json() : filamentosCargados.filter(f => f.activo);
             renderizarTablaFilamentos();
             actualizarSelectoresVenta();
         } catch (err) {
@@ -561,8 +568,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filtrados.forEach(f => {
             const row = document.createElement('tr');
+            if (!f.activo) row.style.opacity = '0.55';
+            const badgeEstado = f.activo
+                ? ''
+                : `<span style="display:inline-block;background:#f59e0b;color:#1c1c1e;font-size:0.7rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:99px;margin-left:0.4rem;">⏸ Suspendido</span>`;
+            const btnToggle = f.activo
+                ? `<button class="btn-warning btn-suspend-fil" data-id="${f.id}" title="Suspender" style="padding:0.4rem 0.8rem;font-size:0.8rem;">⏸ Suspender</button>`
+                : `<button class="btn-success btn-activate-fil" data-id="${f.id}" title="Activar" style="padding:0.4rem 0.8rem;font-size:0.8rem;">▶ Activar</button>`;
             row.innerHTML = `
-                <td><strong>${f.tipo}</strong></td>
+                <td><strong>${f.tipo}</strong>${badgeEstado}</td>
                 <td>${f.marca}</td>
                 <td>
                     <span style="display:inline-flex;align-items:center;gap:0.4rem;">
@@ -574,6 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>$${f.precioCompra}</td>
                 <td class="td-actions">
                     <button class="btn-warning btn-edit-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">✏️ Editar</button>
+                    ${btnToggle}
                     <button class="btn-danger btn-del-fil" data-id="${f.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
                 </td>
             `;
@@ -594,17 +609,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return mapa[color.toLowerCase().split(' ')[0]] || '#71717a';
     }
 
-    // Delegación de eventos para eliminar o editar filamentos
+    // Delegación de eventos para eliminar, suspender, activar o editar filamentos
     if (tablaFilamentosBody) {
         tablaFilamentosBody.addEventListener('click', async (e) => {
+            // --- BORRAR ---
             const btnDel = e.target.closest('.btn-del-fil');
             if (btnDel) {
                 const id = btnDel.getAttribute('data-id');
-                const ok = await confirmar('¿Seguro que querés borrar este filamento del stock?');
+                const ok = await confirmar('¿Seguro que querés borrar este filamento del stock?\n(Solo se puede si no está en ningún pedido)');
                 if (!ok) return;
                 try {
                     const res = await fetchAuth(`${API_BASE}/filamentos/${id}`, { method: 'DELETE' });
-                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || `Error ${res.status}`);
+                    }
                     mostrarToast('Filamento eliminado correctamente.');
                     cargarFilamentos();
                 } catch (err) {
@@ -613,6 +632,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // --- SUSPENDER ---
+            const btnSuspend = e.target.closest('.btn-suspend-fil');
+            if (btnSuspend) {
+                const id = btnSuspend.getAttribute('data-id');
+                const ok = await confirmar('¿Suspender este filamento? No aparecerá al crear nuevos pedidos, pero se mantiene en el historial.');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/filamentos/${id}/suspender`, { method: 'PATCH' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Filamento suspendido. Ya no aparecerá en nuevos pedidos.', 'warning');
+                    cargarFilamentos();
+                } catch (err) {
+                    mostrarToast(`No se pudo suspender: ${err.message}`, 'error');
+                }
+                return;
+            }
+
+            // --- ACTIVAR ---
+            const btnActivate = e.target.closest('.btn-activate-fil');
+            if (btnActivate) {
+                const id = btnActivate.getAttribute('data-id');
+                try {
+                    const res = await fetchAuth(`${API_BASE}/filamentos/${id}/activar`, { method: 'PATCH' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Filamento reactivado. Vuelve a aparecer en nuevos pedidos.');
+                    cargarFilamentos();
+                } catch (err) {
+                    mostrarToast(`No se pudo activar: ${err.message}`, 'error');
+                }
+                return;
+            }
+
+            // --- EDITAR ---
             const btnEdit = e.target.closest('.btn-edit-fil');
             if (btnEdit) {
                 const id = btnEdit.getAttribute('data-id');

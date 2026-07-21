@@ -17,9 +17,16 @@ public class FilamentoController {
     @Autowired
     private FilamentoService filamentoService;
 
+    // Devuelve TODOS (incluyendo suspendidos) — para la tabla de stock
     @GetMapping
     public List<Filamento> listar() {
         return filamentoService.obtenerTodos();
+    }
+
+    // Devuelve solo ACTIVOS — para selectores al crear pedido/compra
+    @GetMapping("/activos")
+    public List<Filamento> listarActivos() {
+        return filamentoService.obtenerActivos();
     }
 
     @GetMapping("/{id}")
@@ -42,6 +49,16 @@ public class FilamentoController {
         filamento.setCantidadGramos(filamentoActualizado.getCantidadGramos());
         filamento.setPrecioCompra(filamentoActualizado.getPrecioCompra());
         return ResponseEntity.ok(filamentoService.guardar(filamento));
+    }
+
+    @PatchMapping("/{id}/suspender")
+    public ResponseEntity<Filamento> suspender(@PathVariable Integer id) {
+        return ResponseEntity.ok(filamentoService.suspender(id));
+    }
+
+    @PatchMapping("/{id}/activar")
+    public ResponseEntity<Filamento> activar(@PathVariable Integer id) {
+        return ResponseEntity.ok(filamentoService.activar(id));
     }
 
     @DeleteMapping("/{id}")

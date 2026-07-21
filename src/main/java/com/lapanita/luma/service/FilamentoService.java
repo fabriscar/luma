@@ -22,6 +22,10 @@ public class FilamentoService {
         return filamentoRepository.findAll();
     }
 
+    public List<Filamento> obtenerActivos() {
+        return filamentoRepository.findByActivoTrue();
+    }
+
     public Filamento obtenerPorId(Integer id) {
         return filamentoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Material no encontrado con ID: " + id));
@@ -33,14 +37,28 @@ public class FilamentoService {
     }
 
     @Transactional
+    public Filamento suspender(Integer id) {
+        Filamento filamento = obtenerPorId(id);
+        filamento.setActivo(false);
+        return filamentoRepository.save(filamento);
+    }
+
+    @Transactional
+    public Filamento activar(Integer id) {
+        Filamento filamento = obtenerPorId(id);
+        filamento.setActivo(true);
+        return filamentoRepository.save(filamento);
+    }
+
+    @Transactional
     public void eliminar(Integer id) {
         // Verificar si algún pedido usa este filamento antes de eliminar
         if (pedidoFilamentoRepository.existsByFilamentoId(id)) {
             throw new RuntimeException(
                 "No se puede eliminar este filamento porque está siendo usado en uno o más pedidos. " +
-                "Primero eliminá o editá los pedidos que lo usan."
+                "Podés suspenderlo para que no aparezca al crear nuevos pedidos."
             );
         }
         filamentoRepository.deleteById(id);
     }
-}
+}

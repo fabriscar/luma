@@ -435,6 +435,10 @@ select:focus {
 .btn-warning { background-color: var(--warning); color: #000; }
 .btn-warning:hover { background-color: #d97706; }
 
+.btn-success { background-color: #22c55e; color: #fff; }
+.btn-success:hover { background-color: #16a34a; }
+
+
 .td-actions {
     text-align: center; /* Centra los botones horizontalmente */
     vertical-align: middle; /* Centra los botones verticalmente */

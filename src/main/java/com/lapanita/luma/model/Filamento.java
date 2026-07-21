@@ -27,6 +27,9 @@ public class Filamento {
     @Column(name = "precio_compra", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioCompra;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean activo = true;
+
     public Filamento() {}
 
     public Filamento(String tipo, String marca, String color, Integer cantidadGramos, BigDecimal precioCompra) {
@@ -35,6 +38,7 @@ public class Filamento {
         this.color = color;
         this.cantidadGramos = cantidadGramos;
         this.precioCompra = precioCompra;
+        this.activo = true;
     }
 
     // --- GETTERS Y SETTERS ---
@@ -55,4 +59,8 @@ public class Filamento {
 
     public BigDecimal getPrecioCompra() { return precioCompra; }
     public void setPrecioCompra(BigDecimal precioCompra) { this.precioCompra = precioCompra; }
+
+    public boolean isActivo() { return activo; }
+    public void setActivo(boolean activo) { this.activo = activo; }
 }
+
