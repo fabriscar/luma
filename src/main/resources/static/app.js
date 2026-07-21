@@ -1134,6 +1134,16 @@ document.addEventListener('DOMContentLoaded', () => {
             inputMontoSena.value = '';
         }
 
+        // Precargar el estado de producción en el select
+        const selectEstadoProd = document.getElementById('venta-estado-produccion');
+        if (selectEstadoProd && pedido.estadoProduccion) {
+            // Sólo mostramos los estados editables (no ENTREGADO)
+            const estadoEditable = ['PENDIENTE_HACER', 'EN_PRODUCCION', 'PENDIENTE_ENTREGA'].includes(pedido.estadoProduccion)
+                ? pedido.estadoProduccion
+                : 'PENDIENTE_HACER';
+            selectEstadoProd.value = estadoEditable;
+        }
+
         const btnSubmit = document.getElementById('btn-submit-venta');
         btnSubmit.textContent = 'Actualizar Pedido';
 
@@ -1160,6 +1170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         filamentosContainer.innerHTML = '';
         agregarFilaFilamentoVenta();
         groupMontoSena.classList.add('hidden');
+        // Resetear estado de producción al valor por defecto
+        const selectEstadoProd = document.getElementById('venta-estado-produccion');
+        if (selectEstadoProd) selectEstadoProd.value = 'PENDIENTE_HACER';
         document.getElementById('btn-submit-venta').textContent = 'Crear Pedido';
         const btnCancel = document.getElementById('btn-cancel-venta');
         if (btnCancel) btnCancel.style.display = 'none';
@@ -1379,13 +1392,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const pedidoOrig = editPedidoId ? pedidosCargados.find(p => p.id === editPedidoId) : null;
             const eraBorrador = pedidoOrig ? pedidoOrig.esBorrador : false;
 
+            // Leer el estado de producción seleccionado por el usuario
+            const selectEstadoProd = document.getElementById('venta-estado-produccion');
+            const estadoProduccionSeleccionado = selectEstadoProd ? selectEstadoProd.value : 'PENDIENTE_HACER';
+
             const payload = {
                 cliente: document.getElementById('venta-cliente').value,
                 fechaEntrega: document.getElementById('venta-entrega').value,
                 totalPedido: parseFloat(totalCalculado),
                 estadoPago: selectEstadoPago.value,
                 montoSena: selectEstadoPago.value === 'SENADO' ? parseFloat(inputMontoSena.value) || 0 : 0,
-                estadoProduccion: eraBorrador ? 'PENDIENTE_HACER' : 'PENDIENTE_HACER',
+                estadoProduccion: estadoProduccionSeleccionado,
                 esBorrador: false, // Al guardar desde el form completo siempre es pedido real
                 nombreProducto: nombreProdFinal,
                 cantidad: cantidad,
@@ -1400,8 +1417,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (editPedidoId) {
                     url = `${API_BASE}/pedidos/${editPedidoId}`;
                     method = 'PUT';
-                    // Conservamos el estado de produccion anterior en modo edicion (a menos que sea borrador confirmado)
-                    if (pedidoOrig && !eraBorrador) payload.estadoProduccion = pedidoOrig.estadoProduccion;
+                    // Al editar, usamos el estado del select (ya fue pre-cargado con el valor actual)
+                    // Solo si venía de borrador confirmado, lo forzamos a PENDIENTE_HACER
+                    if (eraBorrador) payload.estadoProduccion = 'PENDIENTE_HACER';
                 }
 
                 const res = await fetchAuth(url, {

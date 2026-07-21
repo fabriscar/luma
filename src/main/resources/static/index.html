@@ -154,6 +154,14 @@
                         <label for="venta-monto-sena">Monto de Seña ($)</label>
                         <input type="number" step="0.01" id="venta-monto-sena">
                     </div>
+                    <div class="form-group">
+                        <label for="venta-estado-produccion">Estado de Producción</label>
+                        <select id="venta-estado-produccion" required>
+                            <option value="PENDIENTE_HACER">⏳ Pendiente</option>
+                            <option value="EN_PRODUCCION">🔄 En Producción</option>
+                            <option value="PENDIENTE_ENTREGA">📦 Pendiente Entrega</option>
+                        </select>
+                    </div>
                     <button type="submit" id="btn-submit-venta" class="btn-primary btn-inline">Crear Pedido</button>
                     <button type="button" id="btn-borrador-rapido" class="btn-borrador-rapido btn-inline">⚡ Borrador Rápido</button>
                 </form>
