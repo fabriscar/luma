@@ -1825,4 +1825,30 @@ input[type="file"]::file-selector-button:hover {
 .hc-feria {
     border-left: 3px solid #4ade80;
 }
-
+
+/* Centrado del Modal de Venta Feria */
+#modal-venta-feria .modal-borrador-header {
+    justify-content: center;
+    position: relative;
+}
+#modal-venta-feria .btn-cerrar-modal {
+    position: absolute;
+    right: 1.4rem;
+}
+#modal-venta-feria .modal-borrador-desc {
+    text-align: center;
+}
+#modal-venta-feria .form-group {
+    text-align: center;
+}
+#modal-venta-feria .form-group label {
+    text-align: center;
+}
+#modal-venta-feria .form-group input,
+#modal-venta-feria .form-group select {
+    text-align: center;
+    text-align-last: center; /* Centra el texto de la opción seleccionada en el select */
+}
+#modal-venta-feria .vf-total-preview {
+    text-align: center;
+}
