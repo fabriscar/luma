@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#fdb508">
     <link rel="apple-touch-icon" href="logo.png">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -48,6 +48,7 @@
                 <button class="nav-btn" data-section="ventas">Ventas y Pedidos</button>
                 <button class="nav-btn" data-section="productos">Productos (Catálogo)</button>
                 <button class="nav-btn" data-section="stock">Stock Filamentos</button>
+                <button class="nav-btn" data-section="stockferia">🏪 Stock Feria</button>
                 <button class="nav-btn" data-section="historial">📦 Historial</button>
                 <button class="nav-btn" data-section="estadisticas">📊 Estadísticas</button>
             </nav>
@@ -557,6 +558,67 @@
                     </div>
                 </div>
             </section>
+            <!-- ====== SECCIÓN: STOCK FERIA ====== -->
+            <section id="section-stockferia" class="content-section hidden">
+                <h2 id="title-stockferia-form">🏪 Stock para Feria / Venta</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Controlá qué productos tenés listos para vender, en qué colores y a qué precio. Esto no afecta el historial ni las estadísticas financieras.</p>
+
+                <form id="stockferia-form" class="inline-form">
+                    <div class="form-group" style="min-width: 200px; flex: 2;">
+                        <label for="sf-nombre">Nombre del Producto</label>
+                        <input type="text" id="sf-nombre" required placeholder="Ej: Llavero de cohete">
+                    </div>
+                    <div class="form-group" style="min-width: 120px; flex: 0.8;">
+                        <label for="sf-precio">Precio de Venta ($)</label>
+                        <input type="number" step="0.01" id="sf-precio" required placeholder="0.00" min="0">
+                    </div>
+                    <div class="form-group" style="min-width: 180px; flex: 2;">
+                        <label for="sf-descripcion">Descripción (Opcional)</label>
+                        <input type="text" id="sf-descripcion" placeholder="Medidas, material, aclaraciones...">
+                    </div>
+
+                    <!-- Sección de colores/cantidades dinámica -->
+                    <div class="form-group" style="flex-basis: 100%; border: 1px solid var(--border); padding: 12px 14px; border-radius: 6px; background-color: var(--bg-card);">
+                        <label style="margin-bottom: 10px; display: block;">🎨 Colores y Cantidades</label>
+                        <div id="sf-colores-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+                        </div>
+                        <button type="button" id="btn-add-sf-color" class="btn-secondary btn-inline" style="font-size: 0.8rem; padding: 4px 10px;">+ Agregar Color</button>
+                    </div>
+
+                    <button type="submit" id="btn-submit-stockferia" class="btn-primary btn-inline">Guardar Producto</button>
+                    <button type="button" id="btn-cancelar-sf" class="btn-secondary btn-inline hidden">Cancelar Edición</button>
+                </form>
+
+                <!-- Filtros -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <span class="filter-icon">🔍</span>
+                        <input type="text" id="filtro-sf-nombre" placeholder="Buscar por nombre...">
+                    </div>
+                    <span id="contador-sf" class="filtro-contador"></span>
+                    <button id="btn-limpiar-sf" class="btn-limpiar">✕ Limpiar</button>
+                </div>
+
+                <!-- Resumen de totales -->
+                <div id="sf-resumen" class="sf-resumen" style="display:none;">
+                    <div class="sf-resumen-card">
+                        <span class="sf-resumen-valor" id="sf-total-items">0</span>
+                        <span class="sf-resumen-label">Productos</span>
+                    </div>
+                    <div class="sf-resumen-card">
+                        <span class="sf-resumen-valor" id="sf-total-unidades">0</span>
+                        <span class="sf-resumen-label">Unidades Totales</span>
+                    </div>
+                    <div class="sf-resumen-card sf-resumen-precio">
+                        <span class="sf-resumen-valor" id="sf-valor-estimado">$0</span>
+                        <span class="sf-resumen-label">Valor Estimado Stock</span>
+                    </div>
+                </div>
+
+                <!-- Tabla / Grid de productos -->
+                <div id="sf-grid" class="sf-grid"></div>
+
+            </section>
         </main>
     </div>
 
@@ -623,6 +685,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

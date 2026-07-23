@@ -1717,6 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarFilamentos();
         cargarPedidos();
         cargarCompras();
+        cargarStockFeria();
         
         connectWebSocket();
     }
@@ -1754,6 +1755,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (button.getAttribute('data-section') === 'estadisticas') {
             renderEstadisticas();
+        }
+
+        if (button.getAttribute('data-section') === 'stockferia') {
+            cargarStockFeria();
         }
 
         // Responsive: Cerrar sidebar al hacer clic en móvil
@@ -2188,6 +2193,266 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupEstadisticas();
 
+    // =======================================================
+    // --- STOCK FERIA ---
+    // =======================================================
+    let stockFeriaCargado = [];
+    let editStockFeriaId  = null;
+    let filtroStockFeria  = { nombre: '' };
+
+    const sfForm         = document.getElementById('stockferia-form');
+    const sfNombreInput  = document.getElementById('sf-nombre');
+    const sfPrecioInput  = document.getElementById('sf-precio');
+    const sfDescInput    = document.getElementById('sf-descripcion');
+    const sfColoresCont  = document.getElementById('sf-colores-container');
+    const btnAddSfColor  = document.getElementById('btn-add-sf-color');
+    const btnCancelarSf  = document.getElementById('btn-cancelar-sf');
+    const btnSubmitSf    = document.getElementById('btn-submit-stockferia');
+    const sfGrid         = document.getElementById('sf-grid');
+    const filtroSfNombre = document.getElementById('filtro-sf-nombre');
+
+    // --- Agregar fila de color ---
+    function agregarFilaColorSf(color = '', cantidad = 1) {
+        const fila = document.createElement('div');
+        fila.className = 'sf-color-row';
+        fila.innerHTML = `
+            <input type="text" class="sf-input-color" placeholder="Color (ej: Rojo, Azul...)" value="${color}" required style="flex:2;">
+            <input type="number" class="sf-input-cantidad" placeholder="Cant." value="${cantidad}" min="0" required style="flex:0.6; min-width:70px;">
+            <button type="button" class="btn-eliminar-sf-color" title="Quitar color">✕</button>
+        `;
+        fila.querySelector('.btn-eliminar-sf-color').addEventListener('click', () => fila.remove());
+        sfColoresCont.appendChild(fila);
+    }
+
+    if (btnAddSfColor) btnAddSfColor.addEventListener('click', () => agregarFilaColorSf());
+
+    // --- Limpiar formulario ---
+    function resetFormSf() {
+        if (sfForm) sfForm.reset();
+        if (sfColoresCont) sfColoresCont.innerHTML = '';
+        editStockFeriaId = null;
+        if (btnSubmitSf) btnSubmitSf.textContent = 'Guardar Producto';
+        if (btnCancelarSf) btnCancelarSf.classList.add('hidden');
+        const title = document.getElementById('title-stockferia-form');
+        if (title) title.textContent = '🏪 Stock para Feria / Venta';
+    }
+
+    if (btnCancelarSf) btnCancelarSf.addEventListener('click', resetFormSf);
+
+    // --- Cargar stock feria ---
+    async function cargarStockFeria() {
+        try {
+            const res = await fetchAuth(`${API_BASE}/stock-feria`);
+            stockFeriaCargado = await res.json();
+            renderizarStockFeria(aplicarFiltroSf(stockFeriaCargado));
+        } catch (e) {
+            console.error('Error cargando stock feria:', e);
+        }
+    }
+
+    // --- Filtro ---
+    function aplicarFiltroSf(lista) {
+        return lista.filter(item =>
+            !filtroStockFeria.nombre ||
+            item.nombre.toLowerCase().includes(filtroStockFeria.nombre.toLowerCase())
+        );
+    }
+
+    if (filtroSfNombre) {
+        filtroSfNombre.addEventListener('input', () => {
+            filtroStockFeria.nombre = filtroSfNombre.value;
+            const filtrados = aplicarFiltroSf(stockFeriaCargado);
+            actualizarContador('contador-sf', filtrados.length, stockFeriaCargado.length);
+            renderizarStockFeria(filtrados);
+        });
+    }
+
+    const btnLimpiarSf = document.getElementById('btn-limpiar-sf');
+    if (btnLimpiarSf) {
+        btnLimpiarSf.addEventListener('click', () => {
+            filtroStockFeria.nombre = '';
+            if (filtroSfNombre) filtroSfNombre.value = '';
+            actualizarContador('contador-sf', stockFeriaCargado.length, stockFeriaCargado.length);
+            renderizarStockFeria(stockFeriaCargado);
+        });
+    }
+
+    // --- Renderizar grid ---
+    function renderizarStockFeria(lista) {
+        if (!sfGrid) return;
+
+        // Resumen
+        const resumenEl = document.getElementById('sf-resumen');
+        const totalUnidades = stockFeriaCargado.reduce((sum, item) =>
+            sum + (item.colores || []).reduce((s, c) => s + c.cantidad, 0), 0);
+        const valorEstimado = stockFeriaCargado.reduce((sum, item) => {
+            const unidades = (item.colores || []).reduce((s, c) => s + c.cantidad, 0);
+            return sum + (parseFloat(item.precioVenta) * unidades);
+        }, 0);
+
+        if (resumenEl) {
+            resumenEl.style.display = stockFeriaCargado.length > 0 ? 'flex' : 'none';
+            const elItems = document.getElementById('sf-total-items');
+            const elUnid  = document.getElementById('sf-total-unidades');
+            const elValor = document.getElementById('sf-valor-estimado');
+            if (elItems)  elItems.textContent  = stockFeriaCargado.length;
+            if (elUnid)   elUnid.textContent   = totalUnidades;
+            if (elValor)  elValor.textContent  = `$${valorEstimado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        actualizarContador('contador-sf', lista.length, stockFeriaCargado.length);
+
+        if (lista.length === 0) {
+            sfGrid.innerHTML = `
+                <div class="sf-empty">
+                    <span class="sf-empty-icon">🏪</span>
+                    <p>No hay productos cargados todavía.</p>
+                    <p style="font-size:0.85rem; color:var(--text-muted);">Usá el formulario de arriba para agregar tu primer producto para feria.</p>
+                </div>`;
+            return;
+        }
+
+        sfGrid.innerHTML = lista.map(item => {
+            const totalItem = (item.colores || []).reduce((s, c) => s + c.cantidad, 0);
+            const colorBadges = (item.colores && item.colores.length > 0)
+                ? item.colores.map(c => `
+                    <span class="sf-color-badge">
+                        <span class="sf-color-nombre">${c.color}</span>
+                        <span class="sf-color-cant">${c.cantidad}</span>
+                    </span>`).join('')
+                : '<span class="sf-sin-colores">Sin colores registrados</span>';
+
+            return `
+            <div class="sf-card" data-id="${item.id}">
+                <div class="sf-card-header">
+                    <div class="sf-card-titulo">
+                        <span class="sf-card-nombre">${item.nombre}</span>
+                        ${item.descripcion ? `<span class="sf-card-desc">${item.descripcion}</span>` : ''}
+                    </div>
+                    <div class="sf-card-precio">
+                        <span class="sf-precio-label">Precio</span>
+                        <span class="sf-precio-valor">$${parseFloat(item.precioVenta).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                </div>
+                <div class="sf-card-colores">
+                    ${colorBadges}
+                </div>
+                <div class="sf-card-footer">
+                    <span class="sf-total-badge">Total: <strong>${totalItem}</strong> unidad${totalItem !== 1 ? 'es' : ''}</span>
+                    <div class="sf-card-actions">
+                        <button class="btn-sf-editar btn-secondary btn-inline" data-id="${item.id}" title="Editar">✏️ Editar</button>
+                        <button class="btn-sf-eliminar btn-danger btn-inline" data-id="${item.id}" title="Eliminar">🗑</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Eventos de botones
+        sfGrid.querySelectorAll('.btn-sf-editar').forEach(btn => {
+            btn.addEventListener('click', () => iniciarEdicionSf(parseInt(btn.dataset.id)));
+        });
+        sfGrid.querySelectorAll('.btn-sf-eliminar').forEach(btn => {
+            btn.addEventListener('click', () => eliminarItemSf(parseInt(btn.dataset.id)));
+        });
+    }
+
+    // --- Iniciar edición ---
+    function iniciarEdicionSf(id) {
+        const item = stockFeriaCargado.find(i => i.id === id);
+        if (!item) return;
+
+        editStockFeriaId = id;
+        if (sfNombreInput)  sfNombreInput.value = item.nombre;
+        if (sfPrecioInput)  sfPrecioInput.value = item.precioVenta;
+        if (sfDescInput)    sfDescInput.value   = item.descripcion || '';
+        if (sfColoresCont)  sfColoresCont.innerHTML = '';
+        (item.colores || []).forEach(c => agregarFilaColorSf(c.color, c.cantidad));
+
+        if (btnSubmitSf) btnSubmitSf.textContent = 'Actualizar Producto';
+        if (btnCancelarSf) btnCancelarSf.classList.remove('hidden');
+        const title = document.getElementById('title-stockferia-form');
+        if (title) title.textContent = `✏️ Editando: ${item.nombre}`;
+
+        // Scroll al formulario
+        sfForm && sfForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // --- Eliminar ---
+    async function eliminarItemSf(id) {
+        const item = stockFeriaCargado.find(i => i.id === id);
+        const confirmado = await confirmar(`¿Eliminar "${item ? item.nombre : 'este producto'}" del stock de feria?`);
+        if (!confirmado) return;
+        try {
+            const res = await fetchAuth(`${API_BASE}/stock-feria/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                mostrarToast('Producto eliminado del stock de feria', 'success');
+                cargarStockFeria();
+            } else {
+                mostrarToast('Error al eliminar', 'error');
+            }
+        } catch (e) {
+            mostrarToast('Error de conexión', 'error');
+        }
+    }
+
+    // --- Submit formulario ---
+    if (sfForm) {
+        sfForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const nombre = sfNombreInput ? sfNombreInput.value.trim() : '';
+            const precio = sfPrecioInput ? sfPrecioInput.value : '0';
+            const desc   = sfDescInput   ? sfDescInput.value.trim() : '';
+
+            // Recopilar colores
+            const filas = sfColoresCont ? sfColoresCont.querySelectorAll('.sf-color-row') : [];
+            const colores = [];
+            let colorValido = true;
+            filas.forEach(fila => {
+                const colorVal = fila.querySelector('.sf-input-color').value.trim();
+                const cantVal  = parseInt(fila.querySelector('.sf-input-cantidad').value);
+                if (!colorVal || isNaN(cantVal) || cantVal < 0) {
+                    colorValido = false;
+                    return;
+                }
+                colores.push({ color: colorVal, cantidad: cantVal });
+            });
+
+            if (!nombre || !precio) {
+                mostrarToast('Completá nombre y precio de venta', 'warning');
+                return;
+            }
+            if (!colorValido) {
+                mostrarToast('Revisá los colores — todos deben tener nombre y cantidad válida', 'warning');
+                return;
+            }
+
+            const body = { nombre, descripcion: desc || null, precioVenta: precio, colores };
+            const url    = editStockFeriaId ? `${API_BASE}/stock-feria/${editStockFeriaId}` : `${API_BASE}/stock-feria`;
+            const method = editStockFeriaId ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetchAuth(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok || res.status === 201) {
+                    mostrarToast(editStockFeriaId ? 'Producto actualizado ✓' : 'Producto guardado ✓', 'success');
+                    resetFormSf();
+                    cargarStockFeria();
+                } else {
+                    mostrarToast('Error al guardar el producto', 'error');
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión', 'error');
+            }
+        });
+    }
+
+    // =======================================================
+    // --- WebSocket ---
+    // =======================================================
     let stompClient = null;
     function connectWebSocket() {
         if (typeof SockJS === 'undefined' || typeof window.Stomp === 'undefined') return;
