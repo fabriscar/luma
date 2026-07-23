@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#fdb508">
     <link rel="apple-touch-icon" href="logo.png">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -636,6 +636,43 @@
         </div>
     </div>
 
+    <!-- Modal de Venta Feria -->
+    <div id="modal-venta-feria" class="confirm-overlay hidden">
+        <div class="confirm-box modal-borrador-box">
+            <div class="modal-borrador-header">
+                <span>🛒 Registrar Venta de Feria</span>
+                <button type="button" id="btn-cerrar-venta-feria" class="btn-cerrar-modal">✕</button>
+            </div>
+            <p class="modal-borrador-desc" id="vf-producto-nombre" style="font-weight:700; color:var(--primary); margin-bottom: 0.5rem;"></p>
+            <form id="form-venta-feria">
+                <div class="form-group">
+                    <label for="vf-color">Color a vender</label>
+                    <select id="vf-color" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="vf-cantidad">Cantidad</label>
+                    <input type="number" id="vf-cantidad" value="1" min="1" required>
+                    <small id="vf-stock-disponible" style="color:var(--text-muted); margin-top:4px; display:block;"></small>
+                </div>
+                <div class="form-group">
+                    <label for="vf-precio">Precio unitario ($)</label>
+                    <input type="number" step="0.01" id="vf-precio" required min="0">
+                </div>
+                <div class="form-group">
+                    <label for="vf-fecha">Fecha de venta</label>
+                    <input type="date" id="vf-fecha" required>
+                </div>
+                <div class="vf-total-preview" id="vf-total-preview" style="display:none;">
+                    Total: <strong id="vf-total-valor">$0</strong>
+                </div>
+                <div class="modal-borrador-footer">
+                    <button type="button" id="btn-cancelar-venta-feria" class="btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-confirmar-venta-feria" class="btn-primary">✔ Confirmar Venta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Mini-modal de Borrador Rápido -->
     <div id="modal-borrador" class="confirm-overlay hidden">
         <div class="confirm-box modal-borrador-box">
@@ -685,6 +722,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>

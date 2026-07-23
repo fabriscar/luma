@@ -1247,17 +1247,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Actualizar resumen
         const SALDO_INICIAL = 81000; // Ajuste manual por pedidos viejos no registrados
         
-        // Facturado: todo lo entregado + lo pagado (aunque no entregado)
-        const totalFacturado = enHistorial.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0) + SALDO_INICIAL;
+        // Ventas feria: siempre son cobradas en el acto
+        const totalVentasFeria = ventasFeriaCargadas.reduce((s, v) => s + parseFloat(v.precioTotal || 0), 0);
 
-        // Cobrado: pagados completos + señas de senados (de todo el historial)
+        // Facturado: todo lo entregado + lo pagado (aunque no entregado) + ventas de feria
+        const totalFacturado = enHistorial.reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0) + SALDO_INICIAL + totalVentasFeria;
+
+        // Cobrado: pagados completos + señas de senados + ventas de feria (siempre cobradas)
         const totalCobrado = enHistorial
             .filter(p => p.estadoPago === 'PAGADO')
             .reduce((sum, p) => sum + parseFloat(p.totalPedido || 0), 0)
             + enHistorial
             .filter(p => p.estadoPago === 'SENADO')
             .reduce((sum, p) => sum + parseFloat(p.montoSena || 0), 0)
-            + SALDO_INICIAL;
+            + SALDO_INICIAL
+            + totalVentasFeria;
             
         const totalGastos = comprasCargadas.reduce((sum, c) => sum + parseFloat(c.montoTotal || 0), 0);
         const saldoNeto = totalCobrado - totalGastos;
@@ -1268,31 +1272,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const elGastos    = document.getElementById('hist-total-gastos');
         const elSaldoNeto = document.getElementById('hist-saldo-neto');
         
-        if (elTotalPed)  elTotalPed.textContent  = enHistorial.length;
+        if (elTotalPed)  elTotalPed.textContent  = enHistorial.length + ventasFeriaCargadas.length;
         if (elFacturado) elFacturado.textContent = `$${totalFacturado.toFixed(2)}`;
         if (elCobrado)   elCobrado.textContent   = `$${totalCobrado.toFixed(2)}`;
         if (elGastos)    elGastos.textContent    = `$${totalGastos.toFixed(2)}`;
         if (elSaldoNeto) elSaldoNeto.textContent = `$${saldoNeto.toFixed(2)}`;
 
-        // Aplicar filtros al historial completo
-        const filtrados = enHistorial.filter(p => {
+        // Aplicar filtros al historial de pedidos
+        const filtradosPedidos = enHistorial.filter(p => {
             const matchCliente = !filtroHistorial.cliente || p.cliente.toLowerCase().includes(filtroHistorial.cliente.toLowerCase());
             const matchPago    = !filtroHistorial.estadoPago || p.estadoPago === filtroHistorial.estadoPago;
             return matchCliente && matchPago;
         });
 
-        actualizarContador('contador-hist', filtrados.length, enHistorial.length);
+        // Aplicar filtros a ventas feria (filtro cliente busca en nombre producto, filtro pago: si es "PAGADO" se incluyen, si es otro se excluyen)
+        const filtradosVentasFeria = ventasFeriaCargadas.filter(v => {
+            const matchCliente = !filtroHistorial.cliente || v.nombreProducto.toLowerCase().includes(filtroHistorial.cliente.toLowerCase());
+            const matchPago    = !filtroHistorial.estadoPago || filtroHistorial.estadoPago === 'PAGADO';
+            return matchCliente && matchPago;
+        });
+
+        const totalFiltrados = filtradosPedidos.length + filtradosVentasFeria.length;
+        actualizarContador('contador-hist', totalFiltrados, enHistorial.length + ventasFeriaCargadas.length);
 
         grid.innerHTML = '';
 
-        if (filtrados.length === 0) {
+        if (totalFiltrados === 0) {
             grid.innerHTML = `<p style="color:var(--text-muted);font-style:italic;padding:1rem;">${
-                enHistorial.length === 0 ? 'Todavía no hay pedidos pagados ni entregados.' : 'Sin resultados para los filtros aplicados.'
+                (enHistorial.length + ventasFeriaCargadas.length) === 0 ? 'Todavía no hay pedidos pagados ni entregados.' : 'Sin resultados para los filtros aplicados.'
             }</p>`;
             return;
         }
 
-        filtrados.forEach(p => {
+        // Tarjetas de pedidos normales
+        filtradosPedidos.forEach(p => {
             const textoPago = p.estadoPago === 'SENADO' ? `Señado ($${p.montoSena})` : p.estadoPago.replace('_', ' ');
             const badgeClass = p.estadoPago === 'PAGADO' ? 'badge-pagado' : (p.estadoPago === 'SENADO' ? 'badge-sena' : 'badge-debe');
 
@@ -1303,7 +1316,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 listaProductos += '</ul>';
             }
 
-            // Badge extra si está pagado pero aún no fue entregado
             const pendienteEntregaBadge = p.estadoProduccion !== 'ENTREGADO'
                 ? `<span style="font-size:0.72rem;color:var(--warning-color);background:rgba(255,180,0,0.12);border-radius:4px;padding:2px 7px;margin-left:4px;">⏳ Pendiente de entrega</span>`
                 : '';
@@ -1329,7 +1341,33 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.appendChild(card);
         });
 
-        // Delegación de eventos para borrar y PDF en el historial
+        // Tarjetas de ventas de feria
+        filtradosVentasFeria.forEach(v => {
+            const fechaStr = v.fechaVenta || '-';
+            const card = document.createElement('div');
+            card.className = 'historial-card hc-feria';
+            card.innerHTML = `
+                <div class="hc-cliente">
+                    🏪 ${v.nombreProducto}
+                    <span style="font-size:0.72rem;background:rgba(74,222,128,0.15);color:#4ade80;border-radius:4px;padding:2px 7px;margin-left:6px;">🛒 Venta Feria</span>
+                </div>
+                <div class="hc-info">
+                    <span>🎨 Color: ${v.color}</span>
+                    <span>📦 Cantidad: ${v.cantidad} unidad${v.cantidad !== 1 ? 'es' : ''}</span>
+                    <span>📅 Fecha: ${fechaStr}</span>
+                </div>
+                <div class="hc-footer">
+                    <span class="hc-total">$${parseFloat(v.precioTotal).toLocaleString('es-AR', {minimumFractionDigits:2})}</span>
+                    <span class="badge badge-pagado">PAGADO</span>
+                </div>
+                <div class="hc-actions">
+                    <button class="btn-danger btn-hist-del-vf" data-id="${v.id}" style="padding:0.4rem 0.8rem;font-size:0.8rem;">🗑 Borrar</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        // Delegación de eventos — pedidos
         grid.querySelectorAll('.btn-hist-del').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id');
@@ -1346,10 +1384,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Delegación de eventos — ventas feria
+        grid.querySelectorAll('.btn-hist-del-vf').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const ok = await confirmar('¿Eliminar esta venta de feria del historial? El stock NO se restaura.');
+                if (!ok) return;
+                try {
+                    const res = await fetchAuth(`${API_BASE}/ventas-feria/${id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    mostrarToast('Venta de feria eliminada.');
+                    await cargarVentasFeria();
+                    renderizarHistorial();
+                } catch (err) {
+                    mostrarToast(`No se pudo eliminar: ${err.message}`, 'error');
+                }
+            });
+        });
+
         grid.querySelectorAll('.btn-hist-pdf').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = parseInt(btn.getAttribute('data-id'));
-                const pedido = filtrados.find(p => p.id === id);
+                const pedido = filtradosPedidos.find(p => p.id === id);
                 if (pedido) generarPdfPedido(pedido);
             });
         });
@@ -1718,6 +1774,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarPedidos();
         cargarCompras();
         cargarStockFeria();
+        cargarVentasFeria();
         
         connectWebSocket();
     }
@@ -2017,16 +2074,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const fc = new Date(c.fechaCompra + 'T00:00:00');
             return fc >= desde && fc <= hasta;
         });
+        // Filtrar ventas feria por período
+        const ventasFeriaPeriodo = ventasFeriaCargadas.filter(v => {
+            if (!v.fechaVenta) return false;
+            const fv = new Date(v.fechaVenta + 'T00:00:00');
+            return fv >= desde && fv <= hasta;
+        });
 
         // --- CALCULAR KPIs ---
-        const totalFacturado = pedidosPeriodo.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+        const totalVentasFeriaPeriodo = ventasFeriaPeriodo.reduce((s, v) => s + parseFloat(v.precioTotal || 0), 0);
+        const totalFacturado = pedidosPeriodo.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0) + totalVentasFeriaPeriodo;
 
         const totalCobrado = pedidosPeriodo
             .filter(p => p.estadoPago === 'PAGADO')
             .reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0)
             + pedidosPeriodo
             .filter(p => p.estadoPago === 'SENADO')
-            .reduce((s, p) => s + parseFloat(p.montoSena || 0), 0);
+            .reduce((s, p) => s + parseFloat(p.montoSena || 0), 0)
+            + totalVentasFeriaPeriodo; // siempre cobradas en el acto
 
         const totalGastos = comprasPeriodo.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0);
         const saldoNeto = totalCobrado - totalGastos;
@@ -2040,7 +2105,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Actualizar KPI cards
         const el = id => document.getElementById(id);
-        if (el('est-kpi-pedidos')) el('est-kpi-pedidos').textContent = pedidosPeriodo.length;
+        if (el('est-kpi-pedidos')) el('est-kpi-pedidos').textContent = pedidosPeriodo.length + ventasFeriaPeriodo.length;
         if (el('est-kpi-facturado')) el('est-kpi-facturado').textContent = `$${totalFacturado.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         if (el('est-kpi-cobrado')) el('est-kpi-cobrado').textContent = `$${totalCobrado.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         if (el('est-kpi-gastos')) el('est-kpi-gastos').textContent = `$${totalGastos.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -2115,7 +2180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!detalleBody) return;
         detalleBody.innerHTML = '';
 
-        // Unir pedidos y compras del período, ordenados por fecha
+        // Unir pedidos, compras y ventas feria del período, ordenados por fecha
         const itemsDetalle = [];
         pedidosPeriodo.forEach(p => {
             const f = getPedidoFecha(p);
@@ -2128,6 +2193,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const fc = new Date(c.fechaCompra + 'T00:00:00');
             const fechaStr = fc.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
             itemsDetalle.push({ fecha: fc, type: 'gasto', fechaStr, badgeClass: '', textoPago: '', descripcion: c.descripcion || 'Compra de insumos', monto: -parseFloat(c.montoTotal || 0), montoStr: `-$${parseFloat(c.montoTotal || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}` });
+        });
+        // Agregar ventas de feria
+        ventasFeriaPeriodo.forEach(v => {
+            const fv = new Date(v.fechaVenta + 'T00:00:00');
+            const fechaStr = fv.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            itemsDetalle.push({ fecha: fv, type: 'feria', fechaStr, badgeClass: 'badge-pagado', textoPago: 'PAGADO', descripcion: `${v.cantidad}x ${v.nombreProducto} (${v.color})`, monto: parseFloat(v.precioTotal || 0), montoStr: `$${parseFloat(v.precioTotal || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}` });
         });
 
         itemsDetalle.sort((a, b) => b.fecha - a.fecha);
@@ -2146,6 +2217,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${item.descripcion}</td>
                     <td><span class="badge ${item.badgeClass}">${item.textoPago}</span></td>
                     <td style="color:var(--primary);font-weight:700;">${item.montoStr}</td>
+                `;
+            } else if (item.type === 'feria') {
+                row.innerHTML = `
+                    <td>${item.fechaStr}</td>
+                    <td><span class="est-tipo-badge" style="background:rgba(74,222,128,0.15);color:#4ade80;">🛒 Feria</span></td>
+                    <td>${item.descripcion}</td>
+                    <td><span class="badge badge-pagado">PAGADO</span></td>
+                    <td style="color:#4ade80;font-weight:700;">${item.montoStr}</td>
                 `;
             } else {
                 row.innerHTML = `
@@ -2340,14 +2419,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="sf-card-footer">
                     <span class="sf-total-badge">Total: <strong>${totalItem}</strong> unidad${totalItem !== 1 ? 'es' : ''}</span>
                     <div class="sf-card-actions">
-                        <button class="btn-sf-editar btn-secondary btn-inline" data-id="${item.id}" title="Editar">✏️ Editar</button>
+                        <button class="btn-sf-vender btn-success btn-inline" data-id="${item.id}" title="Vender" ${totalItem === 0 ? 'disabled style="opacity:0.45;cursor:not-allowed"' : ''}>🛒 Vender</button>
+                        <button class="btn-sf-editar btn-secondary btn-inline" data-id="${item.id}" title="Editar">✏️</button>
                         <button class="btn-sf-eliminar btn-danger btn-inline" data-id="${item.id}" title="Eliminar">🗑</button>
                     </div>
                 </div>
             </div>`;
         }).join('');
 
-        // Eventos de botones
+        sfGrid.querySelectorAll('.btn-sf-vender').forEach(btn => {
+            btn.addEventListener('click', () => abrirModalVentaFeria(parseInt(btn.dataset.id)));
+        });
         sfGrid.querySelectorAll('.btn-sf-editar').forEach(btn => {
             btn.addEventListener('click', () => iniciarEdicionSf(parseInt(btn.dataset.id)));
         });
@@ -2446,6 +2528,166 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 mostrarToast('Error de conexión', 'error');
+            }
+        });
+    }
+
+    // =======================================================
+    // --- MODAL DE VENTA FERIA ---
+    // =======================================================
+    let ventasFeriaCargadas = [];
+    let ventaFeriaItemActual = null; // el item del stock que se está vendiendo
+
+    async function cargarVentasFeria() {
+        try {
+            const res = await fetchAuth(`${API_BASE}/ventas-feria`);
+            ventasFeriaCargadas = res.ok ? await res.json() : [];
+        } catch (e) {
+            ventasFeriaCargadas = [];
+        }
+    }
+
+    const modalVentaFeria = document.getElementById('modal-venta-feria');
+    const formVentaFeria  = document.getElementById('form-venta-feria');
+    const selectVfColor   = document.getElementById('vf-color');
+    const inputVfCantidad = document.getElementById('vf-cantidad');
+    const inputVfPrecio   = document.getElementById('vf-precio');
+    const inputVfFecha    = document.getElementById('vf-fecha');
+    const vfStockInfo     = document.getElementById('vf-stock-disponible');
+    const vfTotalPreview  = document.getElementById('vf-total-preview');
+    const vfTotalValor    = document.getElementById('vf-total-valor');
+
+    function cerrarModalVentaFeria() {
+        if (modalVentaFeria) modalVentaFeria.classList.add('hidden');
+        if (formVentaFeria) formVentaFeria.reset();
+        ventaFeriaItemActual = null;
+    }
+
+    function actualizarTotalPreviewVf() {
+        const cant = parseInt(inputVfCantidad ? inputVfCantidad.value : '1') || 0;
+        const prec = parseFloat(inputVfPrecio ? inputVfPrecio.value : '0') || 0;
+        const total = (cant * prec).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (vfTotalValor) vfTotalValor.textContent = `$${total}`;
+        if (vfTotalPreview) vfTotalPreview.style.display = (cant > 0 && prec > 0) ? 'block' : 'none';
+    }
+
+    function abrirModalVentaFeria(itemId) {
+        const item = stockFeriaCargado.find(i => i.id === itemId);
+        if (!item) return;
+        ventaFeriaItemActual = item;
+
+        const titleEl = document.getElementById('vf-producto-nombre');
+        if (titleEl) titleEl.textContent = item.nombre;
+
+        // Poblar selector de colores (solo los que tienen stock > 0)
+        if (selectVfColor) {
+            selectVfColor.innerHTML = '';
+            const coloresConStock = (item.colores || []).filter(c => c.cantidad > 0);
+            if (coloresConStock.length === 0) {
+                mostrarToast('Sin stock disponible en ningún color', 'warning');
+                return;
+            }
+            coloresConStock.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.color} (Stock: ${c.cantidad})`;
+                opt.dataset.stock = c.cantidad;
+                selectVfColor.appendChild(opt);
+            });
+            // Mostrar stock del primer color seleccionado
+            actualizarInfoStockVf();
+        }
+
+        // Pre-llenar precio con el precio de venta del producto
+        if (inputVfPrecio) inputVfPrecio.value = parseFloat(item.precioVenta).toFixed(2);
+
+        // Fecha de hoy por defecto
+        if (inputVfFecha) inputVfFecha.value = new Date().toISOString().split('T')[0];
+
+        actualizarTotalPreviewVf();
+
+        if (modalVentaFeria) modalVentaFeria.classList.remove('hidden');
+    }
+
+    function actualizarInfoStockVf() {
+        if (!selectVfColor || !vfStockInfo || !inputVfCantidad) return;
+        const opt = selectVfColor.options[selectVfColor.selectedIndex];
+        if (!opt) return;
+        const stockDisp = parseInt(opt.dataset.stock || '0');
+        vfStockInfo.textContent = `Disponible: ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''}`;
+        inputVfCantidad.max = stockDisp;
+        if (parseInt(inputVfCantidad.value) > stockDisp) inputVfCantidad.value = stockDisp;
+    }
+
+    if (selectVfColor) {
+        selectVfColor.addEventListener('change', () => {
+            actualizarInfoStockVf();
+            actualizarTotalPreviewVf();
+        });
+    }
+    if (inputVfCantidad) inputVfCantidad.addEventListener('input', actualizarTotalPreviewVf);
+    if (inputVfPrecio)   inputVfPrecio.addEventListener('input', actualizarTotalPreviewVf);
+
+    const btnCerrarVF  = document.getElementById('btn-cerrar-venta-feria');
+    const btnCancelarVF = document.getElementById('btn-cancelar-venta-feria');
+    if (btnCerrarVF)  btnCerrarVF.addEventListener('click', cerrarModalVentaFeria);
+    if (btnCancelarVF) btnCancelarVF.addEventListener('click', cerrarModalVentaFeria);
+    if (modalVentaFeria) {
+        modalVentaFeria.addEventListener('click', e => {
+            if (e.target === modalVentaFeria) cerrarModalVentaFeria();
+        });
+    }
+
+    if (formVentaFeria) {
+        formVentaFeria.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!ventaFeriaItemActual) return;
+
+            const colorId  = parseInt(selectVfColor.value);
+            const cantidad = parseInt(inputVfCantidad.value);
+            const precio   = parseFloat(inputVfPrecio.value);
+            const fecha    = inputVfFecha.value;
+
+            const opt = selectVfColor.options[selectVfColor.selectedIndex];
+            const stockDisp = parseInt(opt ? opt.dataset.stock : '0');
+            if (cantidad > stockDisp) {
+                mostrarToast(`Solo hay ${stockDisp} unidad${stockDisp !== 1 ? 'es' : ''} disponibles`, 'warning');
+                return;
+            }
+
+            const btnOk = document.getElementById('btn-confirmar-venta-feria');
+            if (btnOk) { btnOk.disabled = true; btnOk.textContent = 'Registrando...'; }
+
+            try {
+                const res = await fetchAuth(`${API_BASE}/ventas-feria`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemId:   ventaFeriaItemActual.id,
+                        colorId,
+                        cantidad,
+                        precioUnit: precio,
+                        fecha
+                    })
+                });
+                if (res.ok || res.status === 201) {
+                    const colorNombre = opt ? opt.textContent.split(' (')[0] : '';
+                    mostrarToast(`✔ Venta registrada: ${cantidad}x ${ventaFeriaItemActual.nombre} (${colorNombre}) — $${(precio * cantidad).toFixed(2)}`, 'success');
+                    cerrarModalVentaFeria();
+                    await cargarStockFeria();
+                    await cargarVentasFeria();
+                    renderizarHistorial();
+                    if (document.getElementById('section-estadisticas') && !document.getElementById('section-estadisticas').classList.contains('hidden')) {
+                        renderEstadisticas();
+                    }
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    mostrarToast(err.error || 'Error al registrar la venta', 'error');
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión', 'error');
+            } finally {
+                if (btnOk) { btnOk.disabled = false; btnOk.textContent = '✔ Confirmar Venta'; }
             }
         });
     }
