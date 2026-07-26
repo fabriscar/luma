@@ -1,6 +1,7 @@
 package com.lapanita.luma.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -15,6 +16,7 @@ public class VentaFeria {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_stock_feria", nullable = true)
+    @JsonIgnore
     private ItemStockFeria itemStockFeria;
 
     // Guardamos el nombre en texto para conservarlo si el ítem se elimina
