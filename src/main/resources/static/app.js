@@ -1987,12 +1987,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const f = getPedidoFecha(p);
                     return f && f >= diaDate && f <= diaFin;
                 });
+                const ventasDia = ventasFeriaCargadas.filter(v => {
+                    if (!v.fechaVenta) return false;
+                    const fv = new Date(v.fechaVenta + 'T00:00:00');
+                    return fv >= diaDate && fv <= diaFin;
+                });
                 const gastosDia = comprasCargadas.filter(c => {
                     if (!c.fechaCompra) return false;
                     const fc = new Date(c.fechaCompra + 'T00:00:00');
                     return fc >= diaDate && fc <= diaFin;
                 });
-                valores.ingresos.push(pedsDia.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                const ingresosPeds = pedsDia.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+                const ingresosFeria = ventasDia.reduce((s, v) => s + parseFloat(v.precioTotal || 0), 0);
+                valores.ingresos.push(ingresosPeds + ingresosFeria);
                 valores.gastos.push(gastosDia.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
             });
         } else if (periodo === 'mes') {
@@ -2010,12 +2017,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const f = getPedidoFecha(p);
                     return f && f >= semInicio && f <= semFin;
                 });
+                const ventasSem = ventasFeriaCargadas.filter(v => {
+                    if (!v.fechaVenta) return false;
+                    const fv = new Date(v.fechaVenta + 'T00:00:00');
+                    return fv >= semInicio && fv <= semFin;
+                });
                 const gastosSem = comprasCargadas.filter(c => {
                     if (!c.fechaCompra) return false;
                     const fc = new Date(c.fechaCompra + 'T00:00:00');
                     return fc >= semInicio && fc <= semFin;
                 });
-                valores.ingresos.push(pedsSem.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                const ingresosPeds = pedsSem.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+                const ingresosFeria = ventasSem.reduce((s, v) => s + parseFloat(v.precioTotal || 0), 0);
+                valores.ingresos.push(ingresosPeds + ingresosFeria);
                 valores.gastos.push(gastosSem.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
             }
         } else {
@@ -2025,6 +2039,11 @@ document.addEventListener('DOMContentLoaded', () => {
             pedidosCargados.forEach(p => {
                 const f = getPedidoFecha(p);
                 if (f && f >= desde && f <= hasta) mesesSet.add(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}`);
+            });
+            ventasFeriaCargadas.forEach(v => {
+                if (!v.fechaVenta) return;
+                const fv = new Date(v.fechaVenta + 'T00:00:00');
+                if (fv >= desde && fv <= hasta) mesesSet.add(`${fv.getFullYear()}-${String(fv.getMonth()+1).padStart(2,'0')}`);
             });
             comprasCargadas.forEach(c => {
                 if (!c.fechaCompra) return;
@@ -2046,12 +2065,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const f = getPedidoFecha(p);
                     return f && f >= mesInicio && f <= mesFin;
                 });
+                const ventasMes = ventasFeriaCargadas.filter(v => {
+                    if (!v.fechaVenta) return false;
+                    const fv = new Date(v.fechaVenta + 'T00:00:00');
+                    return fv >= mesInicio && fv <= mesFin;
+                });
                 const gastosMes = comprasCargadas.filter(c => {
                     if (!c.fechaCompra) return false;
                     const fc = new Date(c.fechaCompra + 'T00:00:00');
                     return fc >= mesInicio && fc <= mesFin;
                 });
-                valores.ingresos.push(pedsMes.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0));
+                const ingresosPeds = pedsMes.reduce((s, p) => s + parseFloat(p.totalPedido || 0), 0);
+                const ingresosFeria = ventasMes.reduce((s, v) => s + parseFloat(v.precioTotal || 0), 0);
+                valores.ingresos.push(ingresosPeds + ingresosFeria);
                 valores.gastos.push(gastosMes.reduce((s, c) => s + parseFloat(c.montoTotal || 0), 0));
             });
         }
