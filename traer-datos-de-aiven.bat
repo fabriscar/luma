@@ -5,16 +5,38 @@ setlocal
 cd /d "%~dp0"
 
 REM --- Buscar mysql / mysqldump ---
+set "MYSQLBIN="
 where mysqldump >nul 2>nul
-if errorlevel 1 (
-    for /d %%D in ("%ProgramFiles%\MySQL\MySQL Server *") do set "PATH=%%D\bin;%PATH%"
-)
-where mysqldump >nul 2>nul
-if errorlevel 1 (
-    echo No se encontro mysqldump. Instala MySQL Server 8 ^(incluye mysql y mysqldump^).
-    pause
-    exit /b 1
-)
+if not errorlevel 1 goto mysql_ok
+
+REM 1) La carpeta del servicio de MySQL instalado en Windows
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$s = Get-CimInstance Win32_Service | Where-Object { $_.PathName -match 'mysqld' } | Select-Object -First 1; if ($s) { $p = $s.PathName.Trim(); if ($p.StartsWith([string][char]34)) { $p = $p.Substring(1, $p.IndexOf([char]34, 1) - 1) } else { $p = $p.Split(' ')[0] }; Split-Path $p }" 2^>nul`) do set "MYSQLBIN=%%P"
+if defined MYSQLBIN if exist "%MYSQLBIN%\mysqldump.exe" goto mysql_ruta
+
+REM 2) Las carpetas donde se instala normalmente (Server o Workbench)
+set "MYSQLBIN="
+for /d %%D in ("%ProgramFiles%\MySQL\MySQL Server *") do if exist "%%~D\bin\mysqldump.exe" set "MYSQLBIN=%%~D\bin"
+if defined MYSQLBIN goto mysql_ruta
+for /d %%D in ("%ProgramFiles%\MySQL\MySQL Workbench *") do if exist "%%~D\mysqldump.exe" set "MYSQLBIN=%%~D"
+if defined MYSQLBIN goto mysql_ruta
+
+REM 3) Preguntar
+echo.
+echo No encontre MySQL automaticamente.
+echo Busca el archivo mysqldump.exe en el Explorador. Suele estar en
+echo C:\Program Files\MySQL\MySQL Server 8.x\bin
+echo Pega aca la carpeta donde esta y apreta Enter:
+set /p "MYSQLBIN=Carpeta: "
+if not defined MYSQLBIN goto sin_mysql
+set "MYSQLBIN=%MYSQLBIN:"=%"
+if /i "%MYSQLBIN:~-13%"=="mysqldump.exe" set "MYSQLBIN=%MYSQLBIN:~0,-13%"
+
+:mysql_ruta
+if not exist "%MYSQLBIN%\mysqldump.exe" goto sin_mysql
+set "PATH=%MYSQLBIN%;%PATH%"
+
+:mysql_ok
+for /f "delims=" %%V in ('mysqldump --version') do echo Usando: %%V
 
 echo.
 echo Busca estos datos en Render: tu servicio ^> Environment
@@ -60,5 +82,11 @@ exit /b 0
 
 :error
 echo Hubo un error al importar. La copia sigue en luma_nube.sql
+echo Si dice "Can't connect", MySQL Server no esta prendido: revisalo en Servicios ^(MySQL80 o MySQL84^).
+pause
+exit /b 1
+
+:sin_mysql
+echo No se encontro mysqldump.exe. Instala MySQL Server 8 ^(trae mysql y mysqldump^).
 pause
 exit /b 1

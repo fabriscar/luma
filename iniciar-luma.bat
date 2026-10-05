@@ -7,7 +7,7 @@ title LUMA
 
 REM --- Java: si no esta en el PATH, usar el JDK de Eclipse Adoptium ---
 if not defined JAVA_HOME (
-    for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-*") do set "JAVA_HOME=%%D"
+    for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-*") do set "JAVA_HOME=%%~D"
 )
 if defined JAVA_HOME set "PATH=%JAVA_HOME%\bin;%PATH%"
 where java >nul 2>nul
