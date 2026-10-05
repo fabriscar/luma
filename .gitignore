@@ -34,3 +34,7 @@ uploads/
 
 ### Variables de entorno locales ###
 .env
+
+### Copias de la base de datos (tienen tus datos, no se suben) ###
+luma_nube.sql
+backup_luma*.sql
