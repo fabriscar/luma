@@ -5,20 +5,12 @@ import com.lapanita.luma.model.ProductoStl;
 import com.lapanita.luma.repository.ProductoRepository;
 import com.lapanita.luma.repository.ProductoStlRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
-import org.springframework.beans.factory.annotation.Value;
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -31,12 +23,8 @@ public class ProductoService {
     @Autowired
     private ProductoStlRepository productoStlRepository;
 
-    @Value("${cloudinary.url}")
-    private String cloudinaryUrl;
-
-    private Cloudinary getCloudinary() {
-        return new Cloudinary(cloudinaryUrl);
-    }
+    @Autowired
+    private AlmacenamientoService almacenamientoService;
 
     /** Traer todos los productos cargados */
     @Transactional(readOnly = true)
@@ -51,15 +39,12 @@ public class ProductoService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con el ID: " + id));
     }
 
-    /** Guardar o actualizar un producto con sus archivos en Cloudinary */
+    /** Guardar un producto nuevo con su foto y sus archivos STL */
     @Transactional
     public Producto guardar(Producto producto, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
-        Cloudinary cloudinary = getCloudinary();
-
         // 1. Procesar la foto si el usuario subió una
         if (foto != null && !foto.isEmpty()) {
-            Map uploadResult = cloudinary.uploader().upload(foto.getBytes(), ObjectUtils.emptyMap());
-            producto.setRutaFoto(uploadResult.get("secure_url").toString());
+            producto.setRutaFoto(almacenamientoService.guardarFoto(foto));
         }
 
         // 2. Guardar el producto principal en la BD para generar su ID
@@ -67,41 +52,16 @@ public class ProductoService {
 
         // 3. Procesar la lista de archivos .STL si existen
         if (archivosStl != null && !archivosStl.isEmpty()) {
-            boolean hasFiles = false;
-            java.io.File tempFile = java.io.File.createTempFile("stls_", ".zip");
-            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
-                 ZipOutputStream zos = new ZipOutputStream(fos)) {
-                for (MultipartFile stl : archivosStl) {
-                    if (!stl.isEmpty()) {
-                        hasFiles = true;
-                        ZipEntry entry = new ZipEntry(stl.getOriginalFilename());
-                        zos.putNextEntry(entry);
-                        stl.getInputStream().transferTo(zos);
-                        zos.closeEntry();
-                    }
-                }
-            }
-
-            if (hasFiles) {
-                String zipName = productoGuardado.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
-                Map uploadResult = cloudinary.uploader().upload(tempFile, ObjectUtils.asMap(
-                        "resource_type", "raw",
-                        "public_id", zipName
-                ));
-                
-                // Crear la entidad ProductoStl y asociarla al producto padre con la URL de Cloudinary
-                ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), productoGuardado);
+            ProductoStl nuevoStl = subirStlsComoZip(productoGuardado, archivosStl);
+            if (nuevoStl != null) {
                 productoStlRepository.save(nuevoStl);
-            }
-            if (tempFile.exists()) {
-                tempFile.delete();
             }
         }
 
         return productoGuardado;
     }
 
-    /** Actualizar un producto existente en Cloudinary */
+    /** Actualizar un producto existente */
     @Transactional
     public Producto actualizar(Integer id, String nombre, Integer pesoGramos, java.math.BigDecimal precioBase, String detalles, MultipartFile foto, List<MultipartFile> archivosStl) throws IOException {
         Producto producto = obtenerPorId(id);
@@ -110,12 +70,9 @@ public class ProductoService {
         producto.setPrecioBase(precioBase);
         producto.setDetalles(detalles);
 
-        Cloudinary cloudinary = getCloudinary();
-
-        // Si se sube una nueva foto, se reemplaza la anterior (sin borrar en Cloudinary por simplicidad)
+        // Si se sube una nueva foto, se reemplaza la anterior (sin borrar el archivo viejo por simplicidad)
         if (foto != null && !foto.isEmpty()) {
-            Map uploadResult = cloudinary.uploader().upload(foto.getBytes(), ObjectUtils.emptyMap());
-            producto.setRutaFoto(uploadResult.get("secure_url").toString());
+            producto.setRutaFoto(almacenamientoService.guardarFoto(foto));
         }
 
         // Si se suben nuevos archivos STL, se reemplazan los anteriores
@@ -124,8 +81,21 @@ public class ProductoService {
             productoStlRepository.deleteAll(producto.getStlFiles());
             producto.getStlFiles().clear();
 
-            boolean hasFiles = false;
-            java.io.File tempFile = java.io.File.createTempFile("stls_", ".zip");
+            ProductoStl nuevoStl = subirStlsComoZip(producto, archivosStl);
+            if (nuevoStl != null) {
+                productoStlRepository.save(nuevoStl);
+                producto.getStlFiles().add(nuevoStl);
+            }
+        }
+
+        return productoRepository.save(producto);
+    }
+
+    /** Comprime los STLs en un .zip, lo sube y devuelve la entidad (sin guardar). Null si no había archivos. */
+    private ProductoStl subirStlsComoZip(Producto producto, List<MultipartFile> archivosStl) throws IOException {
+        boolean hasFiles = false;
+        java.io.File tempFile = java.io.File.createTempFile("stls_", ".zip");
+        try {
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
                  ZipOutputStream zos = new ZipOutputStream(fos)) {
                 for (MultipartFile stl : archivosStl) {
@@ -139,26 +109,18 @@ public class ProductoService {
                 }
             }
 
-            if (hasFiles) {
-                String zipName = producto.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
-                Map uploadResult = cloudinary.uploader().upload(tempFile, ObjectUtils.asMap(
-                        "resource_type", "raw",
-                        "public_id", zipName
-                ));
-
-                ProductoStl nuevoStl = new ProductoStl(zipName, uploadResult.get("secure_url").toString(), producto);
-                productoStlRepository.save(nuevoStl);
-                producto.getStlFiles().add(nuevoStl);
+            if (!hasFiles) {
+                return null;
             }
-            if (tempFile.exists()) {
-                tempFile.delete();
-            }
+            String zipName = producto.getNombre().replaceAll("\\s+", "_") + "_stls.zip";
+            String url = almacenamientoService.guardarZipStl(tempFile, zipName);
+            return new ProductoStl(zipName, url, producto);
+        } finally {
+            tempFile.delete();
         }
-
-        return productoRepository.save(producto);
     }
 
-    /** Eliminar un producto (no borramos de Cloudinary para mantenerlo simple) */
+    /** Eliminar un producto (no borramos los archivos subidos para mantenerlo simple) */
     @Transactional
     public void eliminar(Integer id) {
         // Eliminar el registro definitivo de la BD (por cascada borra la tabla productos_stl)

@@ -4,20 +4,38 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.function.Function;
 
 @Component
 public class JwtUtil {
 
-    // En un entorno real esto debería venir de una variable de entorno, 
-    // pero para este proyecto lo mantenemos estático para simplicidad.
-    private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
+
+    private final SecretKey secretKey;
     private final long JWT_TOKEN_VALIDITY = 24 * 60 * 60 * 1000; // 24 horas
+
+    public JwtUtil(@Value("${jwt.secret:}") String secret) throws NoSuchAlgorithmException {
+        if (secret.isBlank()) {
+            // Sin JWT_SECRET los tokens dejan de valer cada vez que se reinicia el servidor
+            log.warn("JWT_SECRET no configurado: se usa una clave al azar (hay que volver a loguearse tras reiniciar)");
+            this.secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        } else {
+            // SHA-256 da siempre 32 bytes, el mínimo que exige HS256, sin importar el largo del secreto
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+            this.secretKey = Keys.hmacShaKeyFor(hash);
+        }
+    }
 
     public String generateToken(String username) {
         return Jwts.builder()

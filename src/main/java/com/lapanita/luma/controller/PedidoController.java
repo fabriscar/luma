@@ -64,11 +64,9 @@ public class PedidoController {
     public ResponseEntity<Pedido> cambiarEstadoPago(
             @PathVariable Integer id,
             @RequestParam("nuevoEstado") com.lapanita.luma.model.EstadoPago nuevoEstado) {
-        Pedido pedido = pedidoService.obtenerPorId(id);
-        pedido.setEstadoPago(nuevoEstado);
-        Pedido guardado = pedidoService.guardar(pedido);
+        Pedido actualizado = pedidoService.actualizarEstadoPago(id, nuevoEstado);
         notificarCambio();
-        return ResponseEntity.ok(guardado);
+        return ResponseEntity.ok(actualizado);
     }
 
     @DeleteMapping("/{id}")

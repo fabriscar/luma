@@ -1,6 +1,7 @@
 package com.lapanita.luma.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,7 +20,8 @@ public class Pedido {
     @Column(nullable = false, length = 100)
     private String cliente;
 
-    @Column(name = "fecha_pedido", insertable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "fecha_pedido", updatable = false)
     private LocalDateTime fechaPedido;
 
     @Column(name = "fecha_entrega", nullable = true)

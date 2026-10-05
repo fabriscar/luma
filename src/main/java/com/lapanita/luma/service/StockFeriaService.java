@@ -4,6 +4,7 @@ import com.lapanita.luma.model.ItemStockFeria;
 import com.lapanita.luma.model.StockFeriaColor;
 import com.lapanita.luma.repository.ItemStockFeriaRepository;
 import com.lapanita.luma.repository.StockFeriaColorRepository;
+import com.lapanita.luma.repository.VentaFeriaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,9 @@ public class StockFeriaService {
 
     @Autowired
     private StockFeriaColorRepository colorRepository;
+
+    @Autowired
+    private VentaFeriaRepository ventaFeriaRepository;
 
     public List<ItemStockFeria> obtenerTodos() {
         return itemRepository.findAll();
@@ -57,6 +61,8 @@ public class StockFeriaService {
 
     @Transactional
     public void eliminar(Integer id) {
+        // Las ventas ya hechas quedan en el historial, sin referencia al ítem borrado
+        ventaFeriaRepository.desvincularDeItem(id);
         itemRepository.deleteById(id);
     }
 }

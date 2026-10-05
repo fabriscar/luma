@@ -1798,12 +1798,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     logoutBtn.addEventListener('click', () => cerrarSesion());
 
-    // --- RESTAURAR SESIÓN AL RECARGAR PÁGINA ---
-    if (jwtToken) {
-        // Intentamos cargar la UI, si el token está vencido, fetchAuth cerrará la sesión.
-        iniciarSesionUI();
-    }
-
     navButtons.forEach(button => button.addEventListener('click', () => {
         navButtons.forEach(btn => btn.classList.remove('active'));
         sections.forEach(sec => sec.classList.add('hidden'));
@@ -2723,10 +2717,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // =======================================================
     let stompClient = null;
     function connectWebSocket() {
-        if (typeof SockJS === 'undefined' || typeof window.Stomp === 'undefined') return;
-        const socket = new SockJS('/ws');
-        stompClient = window.Stomp.over(socket);
-        stompClient.debug = null;
+        // @stomp/stompjs v5 se publica como window.StompJs (no como window.Stomp)
+        const Stomp = window.Stomp || (window.StompJs && window.StompJs.Stomp);
+        if (typeof SockJS === 'undefined' || !Stomp) return;
+        stompClient = Stomp.over(() => new SockJS('/ws'));
+        stompClient.debug = () => {};
         stompClient.connect({}, function (frame) {
             stompClient.subscribe('/topic/pedidos', function (mensaje) {
                 cargarPedidos();
@@ -2734,5 +2729,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }, function(err) {
             setTimeout(connectWebSocket, 5000);
         });
+    }
+
+    // --- RESTAURAR SESIÓN AL RECARGAR PÁGINA ---
+    // Va al final para que todas las variables (let) de arriba ya estén inicializadas
+    if (jwtToken) {
+        // Intentamos cargar la UI, si el token está vencido, fetchAuth cerrará la sesión.
+        iniciarSesionUI();
     }
 });

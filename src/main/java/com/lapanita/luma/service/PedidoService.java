@@ -116,6 +116,14 @@ public class PedidoService {
         return pedidoRepository.save(pedido);
     }
 
+    // Solo cambia el estado de pago. No pasa por guardar() porque eso volvería a descontar el stock
+    @Transactional
+    public Pedido actualizarEstadoPago(Integer id, com.lapanita.luma.model.EstadoPago nuevoEstado) {
+        Pedido pedido = obtenerPorId(id);
+        pedido.setEstadoPago(nuevoEstado);
+        return pedidoRepository.save(pedido);
+    }
+
     @Transactional
     public void eliminar(Integer id) {
         Pedido pedido = obtenerPorId(id);

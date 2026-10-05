@@ -716,12 +716,13 @@
     <!-- Área de impresión para generación de PDF (oculto en pantalla, visible al imprimir) -->
     <div id="print-area"></div>
 
-    <!-- Librerías Externas -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@5.0.0/bundles/stomp.umd.min.js"></script>
+    <!-- Librerías Externas (copiadas en /vendor para que funcione sin internet) -->
+    <!-- sortablejs 1.15.7 · chart.js 4.5.1 · sockjs-client 1.6.1 · @stomp/stompjs 5.0.0 -->
+    <script src="vendor/Sortable.min.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/sockjs.min.js"></script>
+    <script src="vendor/stomp.umd.min.js"></script>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>
