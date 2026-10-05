@@ -32,9 +32,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll() // Permitir ver fotos
+                // <img> y <a href> no mandan el token: la foto y el STL se piden sin autenticación
+                .requestMatchers(HttpMethod.GET, "/api/productos/*/foto", "/api/stl/descargar/*").permitAll()
                 
                 // Permitir archivos estáticos del frontend y WebSockets
-                .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico", "/logo.png", "/manifest.json", "/sw.js", "/ws/**").permitAll()
+                .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico", "/logo.png", "/manifest.json", "/sw.js", "/vendor/**", "/ws/**").permitAll()
                 
                 // Todo lo demás requiere autenticación
                 .anyRequest().authenticated()
