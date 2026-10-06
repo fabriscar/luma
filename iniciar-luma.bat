@@ -5,17 +5,29 @@ setlocal
 cd /d "%~dp0"
 title LUMA
 
-REM --- Java: si no esta en el PATH, usar el JDK de Eclipse Adoptium ---
+REM --- Java: hace falta un JDK (trae javac para compilar), no alcanza con un JRE ---
+REM (jshell.exe existe desde Java 9: descarta JDKs viejos como el 8)
+REM 1) JAVA_HOME, solo si apunta a un JDK
+if defined JAVA_HOME if not exist "%JAVA_HOME%\bin\javac.exe" set "JAVA_HOME="
+if defined JAVA_HOME if not exist "%JAVA_HOME%\bin\jshell.exe" set "JAVA_HOME="
+REM 2) El Java del PATH, si es un JDK
 if not defined JAVA_HOME (
-    for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-*") do set "JAVA_HOME=%%~D"
+    for /f "tokens=1,* delims==" %%A in ('java -XshowSettings:properties -version 2^>^&1 ^| findstr /c:"java.home ="') do (
+        for /f "tokens=*" %%H in ("%%B") do if exist "%%H\bin\javac.exe" if exist "%%H\bin\jshell.exe" set "JAVA_HOME=%%H"
+    )
 )
-if defined JAVA_HOME set "PATH=%JAVA_HOME%\bin;%PATH%"
-where java >nul 2>nul
-if errorlevel 1 (
-    echo No se encontro Java. Instala Java 17 o mas nuevo desde https://adoptium.net
+REM 3) Las carpetas donde se instalan los JDK
+if not defined JAVA_HOME (
+    for /d %%D in ("%ProgramFiles%\Java\jdk*" "%ProgramFiles%\Microsoft\jdk-*" "%ProgramFiles%\Amazon Corretto\jdk*" "%ProgramFiles%\Zulu\zulu*" "%ProgramFiles%\Eclipse Adoptium\jdk-*") do if exist "%%~D\bin\javac.exe" if exist "%%~D\bin\jshell.exe" set "JAVA_HOME=%%~D"
+)
+if not defined JAVA_HOME (
+    echo No se encontro el JDK de Java. Tenes solo el JRE, que no alcanza para preparar LUMA.
+    echo Instala "Temurin 21 LTS" eligiendo JDK ^(no JRE^) desde https://adoptium.net
+    echo y volve a abrir LUMA.
     pause
     exit /b 1
 )
+set "PATH=%JAVA_HOME%\bin;%PATH%"
 
 if not exist .env (
     echo No existe el archivo .env
