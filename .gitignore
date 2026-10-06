@@ -37,4 +37,5 @@ uploads/
 
 ### Copias de la base de datos (tienen tus datos, no se suben) ###
 luma_nube.sql
+luma_nube_descargando.sql
 backup_luma*.sql

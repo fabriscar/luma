@@ -49,12 +49,15 @@ set /p ADB=MYSQL_DATABASE de Aiven (normalmente defaultdb):
 
 echo.
 echo Ahora pega la clave de Aiven ^(MYSQL_PASSWORD^):
-mysqldump -h %AHOST% -P %APORT% -u %AUSER% -p --ssl-mode=REQUIRED --single-transaction --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 --result-file=luma_nube.sql %ADB%
+REM Se descarga a un archivo aparte: si falla, no pisa una copia buena anterior
+mysqldump -h %AHOST% -P %APORT% -u %AUSER% -p --ssl-mode=REQUIRED --single-transaction --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 --result-file=luma_nube_descargando.sql %ADB%
 if errorlevel 1 (
+    del luma_nube_descargando.sql 2>nul
     echo No se pudo descargar la base de Aiven. Revisa los datos e intenta de nuevo.
     pause
     exit /b 1
 )
+move /y luma_nube_descargando.sql luma_nube.sql >nul
 echo Copia guardada en luma_nube.sql ^(guardala, es tu backup^).
 
 echo.
